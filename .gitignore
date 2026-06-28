@@ -1,0 +1,11 @@
+.env
+los_data.db
+los_data.db-wal
+los_data.db-shm
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.ogg
+*.log
+.DS_Store

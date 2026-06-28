@@ -1,0 +1,13 @@
+run = "python main.py"
+entrypoint = "main.py"
+
+[nix]
+channel = "stable-24_05"
+
+[deployment]
+run = ["python", "main.py"]
+deploymentTarget = "background"
+
+[[ports]]
+localPort = 8080
+externalPort = 80
