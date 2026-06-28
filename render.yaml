@@ -1,0 +1,31 @@
+services:
+  - type: worker
+    name: los-bot
+    runtime: python
+    plan: starter
+    region: frankfurt
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -u main.py
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: LOS_DB_PATH
+        value: /data/los_data.db
+      - key: LOS_TIMEZONE
+        value: Europe/Moscow
+      - key: ANTHROPIC_MODEL
+        value: claude-opus-4-8
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: LOS_CHAT_ID
+        sync: false
+    disk:
+      name: los-data
+      mountPath: /data
+      sizeGB: 1
