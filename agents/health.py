@@ -287,7 +287,7 @@ async def visits_text(services, upcoming_only: bool = False) -> str:
 # ---------- обзор и блок для брифинга ----------
 async def overview_text(services) -> str:
     latest = await crud.latest_lab_results(services.db, limit=18)
-    parts = ["❤️ ЗДОРОВЬЕ"]
+    parts = ["## ❤️ Здоровье"]
     if latest:
         flagged = [r for r in latest if r.get("flag") in ("low", "high")]
         normal = [r for r in latest if r.get("flag") not in ("low", "high")]

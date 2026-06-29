@@ -342,6 +342,24 @@ async def add_contact(db, name, relation=None, circle=None, birthday=None, inter
     return dict(row)
 
 
+async def update_contact(db, contact_id: int, **fields):
+    """Обновить поля существующего контакта (только переданные не-None)."""
+    allowed = {"name", "relation", "circle", "birthday", "interests",
+               "touch_days", "language", "notes"}
+    sets, vals = [], []
+    for k, v in fields.items():
+        if k in allowed and v is not None:
+            sets.append(f"{k}=?"); vals.append(v)
+            if k == "birthday":
+                sets.append("bday_md=?"); vals.append(_bday_md(v))
+    if not sets:
+        return None
+    vals.append(contact_id)
+    await db.execute(f"UPDATE contacts SET {', '.join(sets)} WHERE id=?", *vals)
+    row = await db.fetchone("SELECT * FROM contacts WHERE id=?", contact_id)
+    return dict(row) if row else None
+
+
 async def list_contacts(db, limit: int = 100) -> list:
     rows = await db.fetchall(
         "SELECT * FROM contacts WHERE is_active=1 ORDER BY name LIMIT ?", limit)
@@ -501,3 +519,31 @@ async def update_visit(db, visit_id: int, **fields):
     sets = ", ".join(f"{c}=?" for c in cols)
     await db.execute(f"UPDATE medical_visits SET {sets} WHERE id=?",
                      *[fields[c] for c in cols], visit_id)
+
+
+# ---------- 🎙 Communication: встречи ----------
+async def add_meeting(db, chat_id, title, transcript, summary=None) -> dict:
+    mid = await db.execute(
+        "INSERT INTO meetings(chat_id, title, transcript, summary) VALUES(?,?,?,?)",
+        chat_id, title, transcript, summary)
+    row = await db.fetchone("SELECT * FROM meetings WHERE id=?", mid)
+    return dict(row)
+
+
+async def get_meeting(db, meeting_id: int):
+    row = await db.fetchone("SELECT * FROM meetings WHERE id=?", meeting_id)
+    return dict(row) if row else None
+
+
+async def latest_meeting(db, chat_id=None):
+    if chat_id is not None:
+        row = await db.fetchone(
+            "SELECT * FROM meetings WHERE chat_id=? ORDER BY id DESC LIMIT 1", chat_id)
+        if row:
+            return dict(row)
+    row = await db.fetchone("SELECT * FROM meetings ORDER BY id DESC LIMIT 1")
+    return dict(row) if row else None
+
+
+async def update_meeting_summary(db, meeting_id: int, summary: str):
+    await db.execute("UPDATE meetings SET summary=? WHERE id=?", summary, meeting_id)

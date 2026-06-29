@@ -171,3 +171,13 @@ CREATE TABLE IF NOT EXISTS medical_visits (
   status TEXT DEFAULT 'planned',   -- planned / done / cancelled
   created_at TEXT DEFAULT (datetime('now'))
 );
+
+-- 🎙 Communication: разобранные встречи/переговоры (запись → транскрипт → сводка)
+CREATE TABLE IF NOT EXISTS meetings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  chat_id INTEGER,
+  title TEXT,                      -- короткое название встречи
+  transcript TEXT,                 -- полная расшифровка
+  summary TEXT,                    -- сводка-протокол (дефолтный формат)
+  created_at TEXT DEFAULT (datetime('now'))
+);

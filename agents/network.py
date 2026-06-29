@@ -38,7 +38,7 @@ async def list_text(services) -> str:
         b = f" 🎂 {c['birthday']}" if c.get("birthday") else ""
         rel = f" — {c['relation']}" if c.get("relation") else ""
         lines.append(f"• {c['name']}{rel}{b}")
-    return "👥 КОНТАКТЫ:\n" + "\n".join(lines)
+    return "## 👥 Контакты\n" + "\n".join(lines)
 
 
 async def write_greeting(services, contact: dict, occasion: str = "день рождения") -> str:

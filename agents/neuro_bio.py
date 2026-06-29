@@ -50,7 +50,7 @@ async def run(services, question: str = None) -> str:
 
 
 def _fallback(oura: dict, dh: dict, cfg) -> str:
-    """Если OpenAI не настроен — простая интерпретация по правилам."""
+    """Если Claude не настроен — простая интерпретация по правилам."""
     r = oura.get("readiness_score")
     energy = dh.get("energy_subjective")
     parts = []

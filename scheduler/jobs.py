@@ -14,29 +14,50 @@ log = logging.getLogger("los.scheduler")
 
 
 async def get_target_chats(services) -> list:
-    chats = set(await crud.get_all_chat_ids(services.db))
-    if services.config.proactive_chat_id:
-        chats.add(services.config.proactive_chat_id)
-    return list(chats)
+    # 🔒 Только владелец(ы). Раньше слалось во ВСЕ сохранённые чаты — посторонний,
+    # нажавший /start, начинал получать личные напоминания. Теперь — никогда.
+    return list(services.config.owner_ids)
 
 
 async def morning_briefing(services):
     from agents import decision_support
-    from bot.keyboards import esoteric_kb
+    from bot.keyboards import briefing_kb
+    from bot import richmsg
     text = await decision_support.run(services, mode="morning")
     for chat in await get_target_chats(services):
         try:
-            await services.bot.send_message(chat, text, reply_markup=esoteric_kb())
+            await richmsg.send_rich_or_plain(services.bot, services.config.telegram_bot_token,
+                                             chat, text, reply_markup=briefing_kb())
         except Exception as e:
             log.error("morning → %s: %s", chat, e)
 
 
-async def evening_digest(services):
-    from agents import decision_support
-    text = await decision_support.run(services, mode="evening")
+async def state_nudge(services, stage: int):
+    """Пинг на ввод состояния (ТЗ §4.1): +5 мин после брифинга, затем ещё +5.
+    Если состояние за сегодня уже введено — молчим."""
+    now = datetime.now(services.config.tz)
+    dh = await crud.get_daily_health(services.db, now.date()) or {}
+    if dh.get("energy_subjective") is not None:
+        return
+    if stage == 1:
+        text = "📝 Введи состояние на сегодня — /state (энергия, фокус, настроение, 3 тапа)."
+    else:
+        text = ("📝 Последнее напоминание про /state. "
+                "Не введёшь — дальше работаю по данным Oura и истории.")
     for chat in await get_target_chats(services):
         try:
             await services.bot.send_message(chat, text)
+        except Exception as e:
+            log.error("state_nudge → %s: %s", chat, e)
+
+
+async def evening_digest(services):
+    from agents import decision_support
+    from bot import richmsg
+    text = await decision_support.run(services, mode="evening")
+    for chat in await get_target_chats(services):
+        try:
+            await richmsg.send_rich_or_plain(services.bot, services.config.telegram_bot_token, chat, text)
         except Exception as e:
             log.error("evening → %s: %s", chat, e)
 
@@ -146,6 +167,11 @@ def setup_scheduler(services) -> AsyncIOScheduler:
 
     h, m = map(int, cfg.morning_briefing_time.split(":"))
     sch.add_job(morning_briefing, CronTrigger(hour=h, minute=m), args=[services], id="morning")
+    base = h * 60 + m  # пинги на ввод состояния: +5 и +10 мин после брифинга
+    for plus, stage in ((5, 1), (10, 2)):
+        t = base + plus
+        sch.add_job(state_nudge, CronTrigger(hour=(t // 60) % 24, minute=t % 60),
+                    args=[services, stage], id=f"state_nudge{stage}")
     eh, em = map(int, cfg.evening_digest_time.split(":"))
     sch.add_job(evening_digest, CronTrigger(hour=eh, minute=em), args=[services], id="evening")
     sch.add_job(medication_tick, IntervalTrigger(minutes=1), args=[services], id="med_tick")

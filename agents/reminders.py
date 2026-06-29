@@ -32,7 +32,7 @@ async def list_text(services) -> str:
         else:
             when = "—"
         lines.append(f"#{r['id']} {r['title']} — {when}")
-    return "⏰ НАПОМИНАНИЯ:\n" + "\n".join(lines)
+    return "## ⏰ Напоминания\n" + "\n".join(lines)
 
 
 async def compute_due(services, now: datetime) -> list:

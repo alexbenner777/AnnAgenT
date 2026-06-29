@@ -70,11 +70,6 @@ def tool_specs() -> list:
            "Показать встречи из календаря на сегодня."),
         fn("esoteric_today",
            "Качество дня: астрология, нумерология, матрица судьбы + тайминги."),
-        fn("set_birth",
-           "Сохранить данные рождения заказчика (для астрологии/нумерологии).",
-           {"date": {"type": "string", "description": "дата рождения: 1985-03-14 или 14.03.1985"},
-            "time": {"type": "string", "description": "время ЧЧ:ММ, если известно"},
-            "city": {"type": "string", "description": "город рождения"}}, ["date"]),
         fn("save_daily_state",
            "Сохранить субъективное состояние босса (энергия/фокус/настроение 1-10, флаги).",
            {"energy": {"type": "integer"}, "focus": {"type": "integer"},
@@ -152,17 +147,33 @@ def tool_specs() -> list:
             "circle": {"type": "string", "enum": ["core", "close", "work", "extended"]},
             "birthday": {"type": "string", "description": "ГГГГ-ММ-ДД или ДД.ММ"},
             "interests": {"type": "string"},
+            "language": {"type": "string", "description": "язык/национальность, напр. русский"},
             "touch_days": {"type": "integer", "description": "желаемый ритм касания, дней"},
             "notes": {"type": "string"}}, ["name"]),
         fn("find_contact", "Найти человека и показать карточку.",
            {"query": {"type": "string"}}, ["query"]),
+        fn("update_contact",
+           "Изменить данные существующего контакта (язык, отношение, круг, интересы, ритм, ДР, заметку).",
+           {"query": {"type": "string", "description": "имя/ФИО для поиска"},
+            "language": {"type": "string"}, "relation": {"type": "string"},
+            "circle": {"type": "string", "enum": ["core", "close", "work", "extended"]},
+            "interests": {"type": "string"}, "touch_days": {"type": "integer"},
+            "birthday": {"type": "string"}, "notes": {"type": "string"}}, ["query"]),
         fn("list_contacts", "Показать список контактов."),
         fn("write_greeting", "Сгенерировать личное поздравление для человека.",
            {"name": {"type": "string"}, "occasion": {"type": "string"}}, ["name"]),
         fn("note_contacted", "Отметить, что сегодня общались с человеком.",
            {"name": {"type": "string"}}, ["name"]),
-        fn("communication_agent", "Анализ переговоров PLAUD (Фаза 2).",
-           {"question": {"type": "string"}}),
+        fn("meeting_last",
+           "Последняя разобранная встреча/переговоры в нужном формате (по её транскрипту).",
+           {"format": {"type": "string",
+                       "enum": ["protocol", "negotiation", "tasks", "email", "tldr"],
+                       "description": ("protocol=протокол, negotiation=переговоры "
+                                       "(кто что пообещал/договорённости/риски), "
+                                       "tasks=задачи, email=письмо-итог, tldr=кратко")}}),
+        fn("meeting_ask",
+           "Ответить на вопрос по последней встрече (опираясь на её расшифровку).",
+           {"question": {"type": "string"}}, ["question"]),
     ]
 
 
@@ -181,18 +192,9 @@ async def dispatch(services, name: str, args: dict, chat_id: int) -> str:
             from agents import esoteric
             return await esoteric.day_quality(services)
         if name == "set_birth":
-            from integrations import geocode
-            from agents import esoteric
-            iso = parse_date(args.get("date"))
-            if not iso:
-                return "Не понял дату рождения. Пример: 14.03.1985."
-            birth = {"date": iso, "time": parse_time(args.get("time")), "city": args.get("city")}
-            if birth["city"]:
-                g = await geocode.geocode(birth["city"])
-                if g:
-                    birth.update({"lat": g["lat"], "lon": g["lon"], "tz": g["tz"], "city": g["city"]})
-            await crud.set_birth(services.db, birth)
-            return f"Записал данные рождения: {esoteric.birth_summary(birth)}."
+            # 🔒 Защита: натальные данные босса из чата НЕ меняем (была случайная перезапись).
+            return ("Натальные данные босса меняются только командой /birth — это защита от "
+                    "случайной перезаписи. Скажи Ане ввести: /birth ДД.ММ.ГГГГ ЧЧ:ММ Город.")
         if name == "save_daily_state":
             fields = {}
             for src, dst in (("energy", "energy_subjective"),
@@ -261,9 +263,19 @@ async def dispatch(services, name: str, args: dict, chat_id: int) -> str:
                 services.db, name=args["name"], relation=args.get("relation"),
                 circle=args.get("circle"), birthday=args.get("birthday"),
                 interests=args.get("interests"), touch_days=args.get("touch_days"),
-                notes=args.get("notes"))
+                language=args.get("language"), notes=args.get("notes"))
             extra = f" (ДР {c['birthday']})" if c.get("birthday") else ""
             return f"Добавил контакт: {c['name']}{extra}."
+        if name == "update_contact":
+            c = await crud.get_contact_by_name(services.db, args.get("query", ""))
+            if not c:
+                return f"Не нашёл контакт «{args.get('query','')}» — сначала добавь его (add_contact)."
+            upd = await crud.update_contact(
+                services.db, c["id"], language=args.get("language"),
+                relation=args.get("relation"), circle=args.get("circle"),
+                interests=args.get("interests"), touch_days=args.get("touch_days"),
+                birthday=args.get("birthday"), notes=args.get("notes"))
+            return f"Обновил контакт: {upd['name']}." if upd else "Нечего обновлять — укажи, что изменить."
         if name == "find_contact":
             cs = await crud.find_contacts(services.db, args.get("query", ""), 3)
             return "\n\n".join(network.card(c) for c in cs) if cs else "Не нашёл такого контакта."
@@ -309,8 +321,11 @@ async def dispatch(services, name: str, args: dict, chat_id: int) -> str:
                 services.db, int(args["id"]), status="done",
                 outcome=args.get("outcome"), followup_date=parse_date(args.get("followup_date")))
             return f"Визит #{args['id']} закрыт."
-        if name == "communication_agent":
-            return await communication.run(services, question=args.get("question"))
+        if name == "meeting_last":
+            return await communication.last_meeting_text(
+                services, chat_id, fmt_key=args.get("format", "protocol"))
+        if name == "meeting_ask":
+            return await communication.ask_last_meeting(services, chat_id, args.get("question", ""))
         return f"Неизвестный инструмент: {name}"
     except Exception as e:
         log.error("Ошибка инструмента %s: %s", name, e)

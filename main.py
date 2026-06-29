@@ -17,6 +17,7 @@ async def main():
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     log = logging.getLogger("los")
+    logging.getLogger("httpx").setLevel(logging.WARNING)  # не светим секретные URL в логах
 
     if not config.telegram_bot_token:
         raise SystemExit("❌ TELEGRAM_BOT_TOKEN не задан. Заполни .env (см. .env.example).")
@@ -33,6 +34,25 @@ async def main():
 
     dp = Dispatcher()
     dp.include_router(build_router(services))
+
+    from aiogram.types import ErrorEvent
+
+    @dp.errors()
+    async def _on_error(event: ErrorEvent):
+        # Любая необработанная ошибка: пишем в лог и мягко отвечаем пользователю,
+        # чтобы кнопка не «висела», а в чате не было тишины.
+        log.exception("Ошибка обработки апдейта: %s", event.exception)
+        upd = event.update
+        try:
+            if getattr(upd, "callback_query", None):
+                await upd.callback_query.answer("Что-то пошло не так. Попробуй ещё раз.")
+                if upd.callback_query.message:
+                    await upd.callback_query.message.answer("⚠️ Не получилось. Попробуй ещё раз.")
+            elif getattr(upd, "message", None):
+                await upd.message.answer("⚠️ Ой, что-то пошло не так. Попробуй ещё раз или напиши иначе.")
+        except Exception:
+            pass
+        return True
 
     scheduler = setup_scheduler(services)
     services.scheduler = scheduler

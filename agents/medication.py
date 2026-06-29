@@ -56,7 +56,7 @@ async def schedule_text(services, header: bool = True) -> str:
                 line += f" ({c})"
             lines.append(line)
     body = "\n".join(sorted(lines)) if lines else "нет времён приёма"
-    return f"💊 ПРЕПАРАТЫ СЕГОДНЯ:\n{body}" if header else body
+    return f"## 💊 Препараты сегодня\n{body}" if header else body
 
 
 async def run(services, question: str = None) -> str:

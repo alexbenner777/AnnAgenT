@@ -7,7 +7,8 @@ openai==1.58.1           # только Whisper (распознавание го
 aiosqlite>=0.20.0        # постоянное хранилище (SQLite, без сервера)
 apscheduler==3.10.4      # планировщик 07:00 / 22:00 / напоминания
 pytz==2024.2             # таймзоны для APScheduler (требует pytz, не zoneinfo)
-httpx==0.28.1            # HTTP-клиент (Oura API, iCal)
+httpx==0.28.1            # HTTP-клиент (Oura API, iCal, rich-сообщения Bot API 10.1)
+markdown>=3.5            # markdown → HTML для сворачиваемых <details> в заметках встреч
 icalendar>=5.0.0         # парсинг Google Calendar (.ics)
 recurring-ical-events>=2.1.0  # разворот повторяющихся событий
 pyswisseph>=2.10         # Swiss Ephemeris (астрология): планеты, дома, транзиты

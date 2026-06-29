@@ -34,7 +34,10 @@ class Services:
         # «Мозги» — Claude (Anthropic)
         self.anthropic = None
         if config.has_anthropic and AsyncAnthropic is not None:
-            self.anthropic = AsyncAnthropic(api_key=config.anthropic_api_key)
+            # timeout + retries: если сервис медлит/перегружен — не виснем навсегда,
+            # а ждём максимум 60с и до 3 раз повторяем (бот не «замирает»).
+            self.anthropic = AsyncAnthropic(
+                api_key=config.anthropic_api_key, timeout=60.0, max_retries=3)
 
         # OpenAI — только для Whisper (голос)
         self.openai = None
