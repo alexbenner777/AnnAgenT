@@ -1,0 +1,2 @@
+- [Replit workflow limitations](workflow-limits.md) — restart_workflow and installLanguagePackages always fail; configureWorkflow writes .replit but can't auto-start; use start script + Run button instead.
+- [LOS Mini App architecture](los-miniapp-arch.md) — FastAPI on 8001 (miniapp_api.py auto-installs deps), Vite on 5000, both started via start_miniapp.sh; Anya sees Health, Den does not.
