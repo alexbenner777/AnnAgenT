@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+  <title>LOS — Life Operating System</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter','system-ui','sans-serif'] },
+          colors: {
+            accent: '#5B9DB8',
+            accentd: '#3D7A96',
+            surface: '#F4F6F9',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root { --accent: #5B9DB8; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html,body,#app { height: 100%; margin: 0; padding: 0; background: #F4F6F9; font-family: 'Inter',sans-serif; -webkit-font-smoothing: antialiased; }
+    #app { max-width: 430px; margin: 0 auto; position: relative; overflow: hidden; }
+
+    /* Glass */
+    .glass { background: rgba(255,255,255,0.6); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 8px 32px rgba(31,38,135,0.08); border-radius: 24px; position: relative; overflow: hidden; }
+    .glass::before { content:''; position:absolute; top:0;left:0;right:0;height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.95),transparent); pointer-events:none; }
+    .glass-sm { background: rgba(255,255,255,0.6); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 4px 16px rgba(31,38,135,0.06); border-radius: 20px; position: relative; overflow: hidden; }
+
+    /* Tab bar */
+    .tab-bar { background: rgba(255,255,255,0.8); backdrop-filter: blur(32px) saturate(200%); -webkit-backdrop-filter: blur(32px) saturate(200%); border: 1px solid rgba(255,255,255,0.85); box-shadow: 0 -4px 32px rgba(31,38,135,0.08), 0 8px 32px rgba(31,38,135,0.06); border-radius: 28px; }
+
+    /* Blobs */
+    .blob { position: fixed; border-radius: 50%; filter: blur(60px); pointer-events: none; opacity: 0.6; animation: blob 12s ease-in-out infinite; }
+    .blob-blue { width:400px;height:400px;background:radial-gradient(circle,rgba(91,157,184,0.28) 0%,transparent 70%);top:-100px;right:-80px;animation-duration:12s; }
+    .blob-mint { width:350px;height:350px;background:radial-gradient(circle,rgba(134,193,173,0.22) 0%,transparent 70%);bottom:80px;left:-80px;animation-duration:15s;animation-direction:reverse; }
+    .blob-sand { width:300px;height:300px;background:radial-gradient(circle,rgba(228,210,179,0.22) 0%,transparent 70%);top:45%;left:40%;transform:translate(-50%,-50%);animation-duration:18s;animation-delay:3s; }
+    @keyframes blob { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(20px,-15px) scale(1.04)} 66%{transform:translate(-15px,10px) scale(0.97)} }
+
+    /* Scrollbar */
+    .scroll-view { overflow-y: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .scroll-view::-webkit-scrollbar { display: none; }
+
+    /* Accent button */
+    .btn-accent { background: linear-gradient(135deg,#5B9DB8,#3D7A96); color: white; font-weight: 600; border-radius: 16px; box-shadow: 0 4px 16px rgba(91,157,184,0.35); border: none; transition: all 0.2s; }
+    .btn-accent:active { transform: scale(0.97); box-shadow: 0 2px 8px rgba(91,157,184,0.25); }
+    .btn-glass { background: rgba(91,157,184,0.12); border: 1px solid rgba(91,157,184,0.25); border-radius: 14px; color: #3D7A96; font-weight: 600; transition: all 0.2s; }
+    .btn-glass:active { background: rgba(91,157,184,0.22); transform: scale(0.97); }
+
+    /* Progress bar */
+    .prog { height: 6px; background: rgba(0,0,0,0.06); border-radius: 99px; overflow: hidden; }
+    .prog-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #5B9DB8, #86C1AD); transition: width 0.6s ease; }
+
+    /* Badge */
+    .badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 100px; font-size: 11px; font-weight: 600; }
+
+    /* Toggle segment */
+    .seg-ctrl { background: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.75); border-radius: 20px; padding: 4px; display: flex; gap: 4px; }
+    .seg-btn { flex: 1; padding: 8px 4px; border-radius: 16px; font-size: 12px; font-weight: 600; transition: all 0.2s; color: #9ca3af; background: transparent; border: none; cursor: pointer; }
+    .seg-btn.active { background: white; color: #5B9DB8; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+
+    /* Page transitions */
+    [x-cloak] { display: none !important; }
+    .page-enter { animation: pageIn 0.25s ease-out; }
+    @keyframes pageIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+    /* Card hover */
+    .card-tap:active { transform: scale(0.98); }
+    .card-tap { transition: transform 0.15s ease; cursor: pointer; }
+
+    /* Slider track */
+    input[type=range] { -webkit-appearance: none; width: 100%; height: 4px; border-radius: 99px; background: rgba(0,0,0,0.08); outline: none; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: white; border: 2px solid #5B9DB8; box-shadow: 0 2px 8px rgba(91,157,184,0.3); cursor: pointer; }
+
+    /* Pill tabs */
+    .pill-tabs { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+    .pill-tabs::-webkit-scrollbar { display: none; }
+    .pill { flex-shrink: 0; padding: 6px 16px; border-radius: 99px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .pill.active { background: #5B9DB8; color: white; }
+    .pill.inactive { background: rgba(255,255,255,0.7); color: #6b7280; }
+
+    /* Load dot colors */
+    .dot-high { background: #ef4444; }
+    .dot-med { background: #eab308; }
+    .dot-low { background: #22c55e; }
+    .dot-blue { background: #5B9DB8; }
+  </style>
+</head>
+<body>
+<div id="app" x-data="los()" x-init="init()" x-cloak>
+
+  <!-- Background blobs -->
+  <div aria-hidden="true" style="position:fixed;inset:0;z-index:0;pointer-events:none;">
+    <div class="blob blob-blue"></div>
+    <div class="blob blob-mint"></div>
+    <div class="blob blob-sand"></div>
+  </div>
+
+  <!-- Main content -->
+  <div class="scroll-view" style="position:relative;z-index:1;height:100dvh;padding-bottom:100px;">
+
+    <!-- HOME PAGE -->
+    <div x-show="page==='home'" class="page-enter px-4 pt-6 space-y-4">
+      <!-- Greeting -->
+      <div>
+        <p class="text-sm text-gray-500 font-medium" x-text="greeting"></p>
+        <h1 class="text-2xl font-bold text-gray-900" x-text="userName + ' 👋'"></h1>
+        <p class="text-sm text-gray-400 mt-0.5" x-text="todayStr"></p>
+      </div>
+
+      <!-- Urgent -->
+      <template x-if="urgent.length > 0">
+        <div class="glass p-4">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-7 h-7 rounded-xl bg-amber-100 flex items-center justify-center text-sm">⚡</div>
+            <span class="font-semibold text-gray-800 text-sm">Сейчас важно</span>
+          </div>
+          <template x-for="item in urgent" :key="item">
+            <div class="flex items-start gap-2.5 mb-2">
+              <div class="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 flex-shrink-0"></div>
+              <p class="text-sm text-gray-700" x-text="item"></p>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <!-- Readiness + Energy -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="glass p-4">
+          <p class="text-xs text-gray-500 font-medium mb-1">Готовность</p>
+          <p class="text-4xl font-bold text-gray-900" x-text="dash.state?.readiness_score ?? '—'"></p>
+          <div class="prog mt-2" x-show="dash.state?.readiness_score">
+            <div class="prog-fill" :style="`width:${dash.state?.readiness_score ?? 0}%`"></div>
+          </div>
+        </div>
+        <div class="glass p-4">
+          <p class="text-xs text-gray-500 font-medium mb-1">Энергия</p>
+          <div class="flex items-end gap-1">
+            <span class="text-4xl font-bold text-gray-900" x-text="dash.state?.energy_subjective ?? '—'"></span>
+            <span class="text-lg text-gray-400 mb-0.5">/10</span>
+          </div>
+          <div class="prog mt-2" x-show="dash.state?.energy_subjective">
+            <div class="prog-fill" :style="`width:${(dash.state?.energy_subjective??0)*10}%;background:linear-gradient(90deg,#34d399,#10b981)`"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick cards -->
+      <template x-if="dash.next_medical_visit">
+        <div class="glass p-4 card-tap" @click="page='health'">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center text-lg">🏥</div>
+              <div>
+                <p class="text-xs text-gray-500">Ближайший визит</p>
+                <p class="text-sm font-semibold text-gray-800" x-text="dash.next_medical_visit?.specialty"></p>
+                <p class="text-xs text-gray-500" x-text="(dash.next_medical_visit?.doctor ?? '') + ' · ' + (dash.next_medical_visit?.visit_date ?? '')"></p>
+              </div>
+            </div>
+            <span class="text-gray-300 text-lg">›</span>
+          </div>
+        </div>
+      </template>
+
+      <template x-if="dash.medications_pending > 0">
+        <div class="glass p-4 card-tap" @click="page='health'">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center text-lg">💊</div>
+              <div>
+                <p class="text-xs text-gray-500">Таблетки сегодня</p>
+                <p class="text-sm font-semibold text-gray-800" x-text="dash.medications_pending + ' ожидают приёма'"></p>
+              </div>
+            </div>
+            <span class="text-gray-300 text-lg">›</span>
+          </div>
+        </div>
+      </template>
+
+      <div class="glass p-4 card-tap" @click="page='finances'">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center text-lg">📈</div>
+            <div>
+              <p class="text-xs text-gray-500">Расходы за месяц</p>
+              <p class="text-sm font-semibold text-gray-800" x-text="dash.month_expenses ? formatMoney(dash.month_expenses) : '—'"></p>
+            </div>
+          </div>
+          <span class="text-gray-300 text-lg">›</span>
+        </div>
+      </div>
+
+      <template x-if="dash.upcoming_birthdays?.length > 0">
+        <div class="glass p-4 card-tap" @click="page='contacts'">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-2xl bg-pink-50 flex items-center justify-center text-lg">🎂</div>
+              <div>
+                <p class="text-xs text-gray-500">Именинники</p>
+                <template x-for="b in dash.upcoming_birthdays?.slice(0,2)" :key="b.name">
+                  <p class="text-sm font-semibold text-gray-800" x-text="b.name + (b.days_until === 0 ? ' — сегодня! 🎉' : ` — через ${b.days_until} дн.`)"></p>
+                </template>
+              </div>
+            </div>
+            <span class="text-gray-300 text-lg">›</span>
+          </div>
+        </div>
+      </template>
+
+      <!-- Sections grid -->
+      <div>
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">Разделы</p>
+        <div class="grid grid-cols-2 gap-2">
+          <template x-for="s in sections" :key="s.page">
+            <div class="glass-sm p-3 card-tap" @click="goPage(s.page)">
+              <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl flex items-center justify-center text-base" :style="`background:${s.color}20`" x-text="s.emoji"></div>
+                <span class="text-sm font-medium text-gray-700" x-text="s.label"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+      <div class="h-4"></div>
+    </div>
+
+    <!-- HEALTH PAGE -->
+    <div x-show="page==='health'" class="page-enter px-4 pt-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900">Здоровье</h1>
+        <button class="btn-accent w-9 h-9 flex items-center justify-center text-lg" @click="showAddMed=!showAddMed">+</button>
+      </div>
+
+      <div class="seg-ctrl">
+        <button class="seg-btn" :class="healthTab==='meds'?'active':''" @click="healthTab='meds'">💊 Препараты</button>
+        <button class="seg-btn" :class="healthTab==='visits'?'active':''" @click="healthTab='visits'">🏥 Визиты</button>
+        <button class="seg-btn" :class="healthTab==='labs'?'active':''" @click="healthTab='labs'">🔬 Анализы</button>
+      </div>
+
+      <!-- Add med form -->
+      <div class="glass p-4 space-y-3" x-show="showAddMed">
+        <p class="font-semibold text-sm text-gray-800">Добавить препарат</p>
+        <input class="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm outline-none border border-gray-200 focus:border-accent" placeholder="Название" x-model="newMed.name"/>
+        <input class="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm outline-none border border-gray-200 focus:border-accent" placeholder="Дозировка (400мг)" x-model="newMed.dosage"/>
+        <input class="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm outline-none border border-gray-200 focus:border-accent" placeholder="Время: 09:00, 21:00" x-model="newMed.schedule_times"/>
+        <div class="flex gap-2">
+          <button class="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-medium" @click="showAddMed=false">Отмена</button>
+          <button class="flex-1 py-2.5 rounded-xl btn-accent text-sm" @click="addMed()">Добавить</button>
+        </div>
+      </div>
+
+      <!-- Medications -->
+      <div x-show="healthTab==='meds'" class="space-y-3">
+        <template x-if="meds.length===0">
+          <div class="glass p-8 text-center"><p class="text-gray-400 text-sm">Нет активных препаратов</p></div>
+        </template>
+        <template x-for="med in meds" :key="med.id">
+          <div class="glass p-4">
+            <div class="flex items-start justify-between mb-2">
+              <div>
+                <span class="font-semibold text-gray-800" x-text="med.name"></span>
+                <template x-if="med.is_critical"><span class="badge ml-2" style="background:rgba(239,68,68,0.1);color:#dc2626">❗ Критичный</span></template>
+                <p class="text-xs text-gray-500 mt-0.5" x-text="med.dosage"></p>
+              </div>
+              <div class="flex gap-1">
+                <template x-if="(med.today_log?.filter(l=>l.status==='taken')?.length??0) > 0">
+                  <span class="badge" style="background:rgba(34,197,94,0.1);color:#16a34a" x-text="'✓ ' + med.today_log.filter(l=>l.status==='taken').length"></span>
+                </template>
+                <template x-if="(med.today_log?.filter(l=>l.status==='pending')?.length??0) > 0">
+                  <span class="badge" style="background:rgba(234,179,8,0.1);color:#ca8a04" x-text="'⏳ ' + med.today_log.filter(l=>l.status==='pending').length"></span>
+                </template>
+              </div>
+            </div>
+            <template x-for="log in (med.today_log?.filter(l=>l.status==='pending')??[])" :key="log.scheduled_at">
+              <div class="bg-gray-50/80 rounded-2xl p-3 mt-2">
+                <p class="text-xs text-gray-500 mb-2" x-text="formatTime(log.scheduled_at)"></p>
+                <div class="flex gap-2">
+                  <button class="flex-1 py-2 rounded-xl bg-green-50 text-green-600 text-xs font-semibold active:scale-95" @click="logIntake(med.id,log.scheduled_at,'taken')">✓ Принял</button>
+                  <button class="flex-1 py-2 rounded-xl bg-gray-100 text-gray-500 text-xs font-semibold active:scale-95" @click="logIntake(med.id,log.scheduled_at,'skipped')">↷ Пропустить</button>
+                  <button class="flex-1 py-2 rounded-xl bg-amber-50 text-amber-600 text-xs font-semibold active:scale-95" @click="logIntake(med.id,log.scheduled_at,'snoozed')">⏰ +15м</button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+
+      <!-- Visits -->
+      <div x-show="healthTab==='visits'" class="space-y-3">
+        <template x-if="visits.filter(v=>v.status==='planned').length===0">
+          <div class="glass p-8 text-center"><p class="text-gray-400 text-sm">Нет запланированных визитов</p></div>
+        </template>
+        <template x-for="v in visits.filter(v=>v.status==='planned')" :key="v.id">
+          <div class="glass p-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center text-lg">🩺</div>
+              <div class="flex-1">
+                <div class="flex items-center gap-2">
+                  <p class="font-semibold text-sm text-gray-800" x-text="v.specialty"></p>
+                  <span class="badge" style="background:rgba(59,130,246,0.1);color:#3b82f6;font-size:10px">Запланировано</span>
+                </div>
+                <p class="text-xs text-gray-600" x-text="v.doctor"></p>
+                <p class="text-xs text-gray-500" x-text="v.visit_date ? '📅 ' + v.visit_date : v.schedule_pattern ? '🔄 ' + v.schedule_pattern : ''"></p>
+                <p class="text-xs text-gray-400" x-text="v.reason"></p>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Labs -->
+      <div x-show="healthTab==='labs'" class="space-y-3">
+        <template x-if="labs.length===0">
+          <div class="glass p-8 text-center"><p class="text-gray-400 text-sm">Нет загруженных анализов</p></div>
+        </template>
+        <template x-for="panel in labs" :key="panel.id">
+          <div class="glass overflow-hidden">
+            <button class="w-full p-4 flex items-center justify-between" @click="expandedLab = expandedLab===panel.id ? null : panel.id">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-lg">🔬</div>
+                <div class="text-left">
+                  <p class="font-semibold text-sm text-gray-800" x-text="panel.lab_name ?? 'Лаборатория'"></p>
+                  <p class="text-xs text-gray-500" x-text="panel.taken_on"></p>
+                </div>
+              </div>
+              <span class="text-gray-400" x-text="expandedLab===panel.id ? '▲' : '▾'"></span>
+            </button>
+            <div x-show="expandedLab===panel.id" class="px-4 pb-4 border-t border-gray-100 pt-3 space-y-2">
+              <template x-for="r in (panel.results??[])" :key="r.id">
+                <div class="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                  <div>
+                    <p class="text-sm text-gray-700" x-text="r.marker"></p>
+                    <p class="text-xs text-gray-400" x-text="(r.ref_low??'')+'–'+(r.ref_high??'')+' '+(r.unit??'')"></p>
+                  </div>
+                  <div class="text-right">
+                    <p class="text-sm font-bold" :class="r.flag==='low'?'text-blue-500':r.flag==='high'?'text-red-500':'text-green-600'" x-text="(r.value_text ?? r.value) + ' ' + (r.unit ?? '')"></p>
+                    <template x-if="r.flag && r.flag!=='normal'">
+                      <span class="badge text-xs" :style="r.flag==='low'?'background:rgba(59,130,246,0.1);color:#3b82f6':'background:rgba(239,68,68,0.1);color:#dc2626'" x-text="r.flag==='low'?'↓ Низко':'↑ Высоко'"></span>
+                    </template>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+      <div class="h-4"></div>
+    </div>
+
+    <!-- CALENDAR PAGE -->
+    <div x-show="page==='calendar'" class="page-enter px-4 pt-6 space-y-4">
+      <h1 class="text-2xl font-bold text-gray-900">Календарь</h1>
+      <div class="seg-ctrl">
+        <button class="seg-btn" :class="calDays===1?'active':''" @click="calDays=1;loadCalendar()">Сегодня</button>
+        <button class="seg-btn" :class="calDays===7?'active':''" @click="calDays=7;loadCalendar()">7 дней</button>
+        <button class="seg-btn" :class="calDays===14?'active':''" @click="calDays=14;loadCalendar()">14 дней</button>
+      </div>
+      <template x-if="calGroups.length===0">
+        <div class="glass p-8 text-center"><p class="text-gray-400 text-sm">Нет событий</p></div>
+      </template>
+      <template x-for="group in calGroups" :key="group.date">
+        <div class="space-y-2">
+          <div class="flex items-center justify-between px-1">
+            <p class="text-sm font-semibold text-gray-700 capitalize" x-text="formatDateLabel(group.date)"></p>
+            <span class="badge text-xs" :class="getDayLoad(group.events)==='Перегрузка'?'bg-red-50 text-red-500':getDayLoad(group.events)==='Насыщенно'?'bg-yellow-50 text-yellow-600':'bg-green-50 text-green-600'" x-text="getDayLoad(group.events)"></span>
+          </div>
+          <template x-for="ev in group.events" :key="ev.id">
+            <div class="glass p-4">
+              <div class="flex items-start gap-3">
+                <div class="w-2.5 h-2.5 rounded-full mt-1 flex-shrink-0" :class="ev.cognitive_load==='high'?'dot-high':ev.cognitive_load==='medium'?'dot-med':'dot-low'"></div>
+                <div class="flex-1">
+                  <p class="font-semibold text-sm text-gray-800" x-text="ev.title"></p>
+                  <div class="flex gap-3 mt-1">
+                    <span class="text-xs text-gray-500" x-show="ev.start_time" x-text="'🕐 ' + ev.start_time + (ev.end_time ? '–'+ev.end_time : '')"></span>
+                    <span class="text-xs text-gray-500" x-show="ev.location" x-text="'📍 ' + ev.location"></span>
+                  </div>
+                  <p class="text-xs text-gray-400 mt-1" x-text="ev.description"></p>
+                  <span class="badge mt-2 text-xs" :class="ev.cognitive_load==='high'?'bg-red-50 text-red-500':ev.cognitive_load==='medium'?'bg-yellow-50 text-yellow-600':'bg-green-50 text-green-600'" x-text="ev.cognitive_load==='high'?'🔴 Высокая':ev.cognitive_load==='medium'?'🟡 Средняя':'🟢 Низкая'"></span>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+      <div class="h-4"></div>
+    </div>
+
+    <!-- FINANCES PAGE -->
+    <div x-show="page==='finances'" class="page-enter px-4 pt-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900">Финансы</h1>
+        <button class="btn-accent px-3 py-2 text-sm flex items-center gap-1.5" @click="showAddExp=!showAddExp">+ Расход</button>
+      </div>
+
+      <!-- Add expense -->
+      <div class="glass p-4 space-y-3" x-show="showAddExp">
+        <p class="font-semibold text-sm text-gray-800">Внести расход</p>
+        <input class="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm outline-none border border-gray-200 focus:border-accent" placeholder='Напр: "5000, такси" или просто сумма' x-model="expText" @keydown.enter="addExpense()"/>
+        <div class="flex gap-2">
+          <button class="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-medium" @click="showAddExp=false">Отмена</button>
+          <button class="flex-1 py-2.5 rounded-xl btn-accent text-sm" @click="addExpense()">Внести</button>
+        </div>
+      </div>
+
+      <!-- Summary tiles -->
+      <div class="grid grid-cols-3 gap-2">
+        <div class="glass p-3 text-center">
+          <p class="text-xl font-bold text-gray-900" x-text="fin.month_income ? (fin.month_income/1000).toFixed(0)+'к' : '—'"></p>
+          <p class="text-xs text-gray-500 mt-0.5">Доход</p>
+        </div>
+        <div class="glass p-3 text-center">
+          <p class="text-xl font-bold text-gray-900" x-text="fin.month_expenses ? (fin.month_expenses/1000).toFixed(0)+'к' : '—'"></p>
+          <p class="text-xs text-gray-500 mt-0.5">Расходы</p>
+        </div>
+        <div class="glass p-3 text-center">
+          <p class="text-xl font-bold" :class="(fin.balance??0)>=0?'text-green-600':'text-red-500'" x-text="fin.balance!=null ? (fin.balance/1000).toFixed(0)+'к' : '—'"></p>
+          <p class="text-xs text-gray-500 mt-0.5">Баланс</p>
+        </div>
+      </div>
+
+      <!-- By category -->
+      <template x-if="fin.by_category?.length > 0">
+        <div class="glass p-4">
+          <p class="font-semibold text-sm text-gray-800 mb-3">Расходы по категориям</p>
+          <div class="space-y-2.5">
+            <template x-for="(cat,i) in (fin.by_category??[]).slice(0,6)" :key="cat.category">
+              <div>
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-gray-700" x-text="cat.category"></span>
+                  <span class="font-medium text-gray-800" x-text="formatMoney(cat.total)"></span>
+                </div>
+                <div class="prog">
+                  <div class="prog-fill" :style="`width:${Math.min(100,(cat.total/(fin.month_expenses||1))*100)}%;background:${['#5B9DB8','#86C1AD','#E4D2B3','#B8A0D4','#F0A0A0','#A0C4F0'][i%6]}`"></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <!-- Limits -->
+      <template x-if="(fin.limits??[]).length > 0">
+        <div class="space-y-2">
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">Лимиты</p>
+          <template x-for="lim in (fin.limits??[])" :key="lim.id">
+            <div class="glass p-3" x-data="{get spent(){return (fin.by_category??[]).find(c=>c.category===lim.category)?.total??0}, get pct(){return Math.min(100,((fin.by_category??[]).find(c=>c.category===lim.category)?.total??0)/lim.monthly_limit*100)}}">
+              <div class="flex justify-between mb-1.5">
+                <span class="text-sm text-gray-700" x-text="lim.category"></span>
+                <span class="text-xs font-semibold" :class="pct>100?'text-red-500':'text-gray-600'" x-text="formatMoney(spent) + ' / ' + formatMoney(lim.monthly_limit)"></span>
+              </div>
+              <div class="prog">
+                <div class="prog-fill" :style="`width:${pct}%;background:${pct>100?'#ef4444':'#5B9DB8'}`"></div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <!-- Recent -->
+      <template x-if="(fin.recent_expenses??[]).length > 0">
+        <div class="space-y-2">
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">Последние</p>
+          <template x-for="e in (fin.recent_expenses??[])" :key="e.id">
+            <div class="glass-sm px-4 py-3">
+              <div class="flex justify-between items-center">
+                <div>
+                  <p class="text-sm text-gray-800" x-text="e.description || e.category"></p>
+                  <p class="text-xs text-gray-400" x-text="(e.category??'') + ' · ' + (e.expense_date??'')"></p>
+                </div>
+                <span class="text-sm font-bold text-gray-800" x-text="formatMoney(e.amount)"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+      <div class="h-4"></div>
+    </div>
+
+    <!-- STATE PAGE -->
+    <div x-show="page==='state'" class="page-enter px-4 pt-6 space-y-4">
+      <h1 class="text-2xl font-bold text-gray-900">Состояние</h1>
+      <div class="glass p-5 space-y-5">
+        <div class="flex items-center justify-between">
+          <p class="font-semibold text-gray-800">Сегодня</p>
+          <span class="badge bg-green-50 text-green-600 text-xs" x-show="stateSaved">✓ Сохранено</span>
+        </div>
+        <!-- Energy slider -->
+        <div>
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-sm font-medium text-gray-700">⚡ Энергия</span>
+            <span class="text-2xl font-bold text-accent" x-text="stateForm.energy + '/10'"></span>
+          </div>
+          <input type="range" min="1" max="10" x-model.number="stateForm.energy"/>
+        </div>
+        <!-- Sleep slider -->
+        <div>
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-sm font-medium text-gray-700">😴 Сон</span>
+            <span class="text-2xl font-bold" style="color:#86C1AD" x-text="stateForm.sleep + '/10'"></span>
+          </div>
+          <input type="range" min="1" max="10" x-model.number="stateForm.sleep" style="accent-color:#86C1AD"/>
+        </div>
+        <!-- Toggles -->
+        <div class="space-y-2">
+          <button class="w-full flex items-center justify-between p-3 rounded-2xl transition-all" :class="stateForm.workout?'bg-accent/10 border border-accent/20':'bg-gray-50'" @click="stateForm.workout=!stateForm.workout">
+            <span class="text-sm font-medium" :class="stateForm.workout?'text-accent':'text-gray-600'">🏃 Тренировка</span>
+            <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs" :class="stateForm.workout?'bg-accent text-white':'bg-gray-200 text-gray-400'" x-text="stateForm.workout?'✓':'×'"></span>
+          </button>
+          <button class="w-full flex items-center justify-between p-3 rounded-2xl transition-all" :class="stateForm.massage?'bg-accent/10 border border-accent/20':'bg-gray-50'" @click="stateForm.massage=!stateForm.massage">
+            <span class="text-sm font-medium" :class="stateForm.massage?'text-accent':'text-gray-600'">💆 Массаж</span>
+            <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs" :class="stateForm.massage?'bg-accent text-white':'bg-gray-200 text-gray-400'" x-text="stateForm.massage?'✓':'×'"></span>
+          </button>
+          <button class="w-full flex items-center justify-between p-3 rounded-2xl transition-all" :class="stateForm.alcohol?'bg-red-50 border border-red-200':'bg-gray-50'" @click="stateForm.alcohol=!stateForm.alcohol">
+            <span class="text-sm font-medium" :class="stateForm.alcohol?'text-red-500':'text-gray-600'">🍷 Алкоголь</span>
+            <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs" :class="stateForm.alcohol?'bg-red-400 text-white':'bg-gray-200 text-gray-400'" x-text="stateForm.alcohol?'✓':'×'"></span>
+          </button>
+        </div>
+        <button class="w-full btn-accent py-3 text-sm flex items-center justify-center gap-2" @click="saveState()" :disabled="stateSaving">
+          <span>💾</span> <span x-text="stateSaving?'Сохраняем...':'Сохранить состояние'"></span>
+        </button>
+      </div>
+
+      <!-- Oura data -->
+      <template x-if="todayState && (todayState.readiness_score || todayState.hrv_avg)">
+        <div class="grid grid-cols-2 gap-3">
+          <template x-if="todayState.readiness_score">
+            <div class="glass p-4 text-center">
+              <p class="text-xs text-gray-500 mb-1">Oura Readiness</p>
+              <p class="text-4xl font-bold text-gray-900" x-text="todayState.readiness_score"></p>
+              <div class="prog mt-2"><div class="prog-fill" :style="`width:${todayState.readiness_score}%;background:#B8A0D4`"></div></div>
+            </div>
+          </template>
+          <template x-if="todayState.hrv_avg">
+            <div class="glass p-4 text-center">
+              <p class="text-xs text-gray-500 mb-1">HRV</p>
+              <p class="text-4xl font-bold text-gray-900" x-text="Math.round(todayState.hrv_avg)"></p>
+              <p class="text-xs text-gray-400 mt-1">мс</p>
+            </div>
+          </template>
+        </div>
+      </template>
+      <div class="h-4"></div>
+    </div>
+
+    <!-- BRIEFING PAGE -->
+    <div x-show="page==='briefing'" class="page-enter px-4 pt-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900">Сводка</h1>
+        <button class="btn-glass w-9 h-9 flex items-center justify-center" @click="loadBriefing()" :class="briefingLoading?'opacity-50':''">↻</button>
+      </div>
+      <template x-if="briefings.length===0">
+        <div class="glass p-8 text-center">
+          <p class="text-4xl mb-3">☀️</p>
+          <p class="text-gray-600 font-medium">Брифинг не готов</p>
+          <p class="text-sm text-gray-400 mt-1">Бот генерирует в 07:00 и 22:00</p>
+        </div>
+      </template>
+      <template x-for="b in briefings" :key="b.id">
+        <div class="glass overflow-hidden">
+          <div class="p-4">
+            <div class="flex items-start justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-xl" :class="b.briefing_type==='morning'?'bg-amber-50':'bg-indigo-50'" x-text="b.briefing_type==='morning'?'☀️':'🌙'"></div>
+                <div>
+                  <p class="font-semibold text-sm text-gray-800" x-text="b.briefing_type==='morning'?'Утренний брифинг':'Вечерний дайджест'"></p>
+                  <p class="text-xs text-gray-400" x-text="b.briefing_date"></p>
+                </div>
+              </div>
+              <button class="text-gray-400 text-lg" @click="expandedBriefing=expandedBriefing===b.id?null:b.id" x-text="expandedBriefing===b.id?'▲':'▾'"></button>
+            </div>
+
+            <template x-if="b.content?.priorities?.length > 0">
+              <div class="mt-3 p-3 rounded-2xl" style="background:rgba(251,191,36,0.1)">
+                <p class="text-xs font-semibold text-amber-600 mb-1">⚡ Важно</p>
+                <template x-for="p in b.content.priorities.slice(0,2)" :key="p">
+                  <p class="text-xs text-gray-700">• <span x-text="p"></span></p>
+                </template>
+              </div>
+            </template>
+
+            <template x-if="b.content?.state">
+              <div class="flex gap-2 mt-3">
+                <span class="badge text-xs" style="background:rgba(59,130,246,0.1);color:#3b82f6" x-text="'⚡ '+b.content.state.energy+'/10'"></span>
+                <span class="badge text-xs" style="background:rgba(34,197,94,0.1);color:#16a34a" x-text="'😴 '+b.content.state.sleep+'ч'"></span>
+                <span class="badge text-xs" style="background:rgba(139,92,246,0.1);color:#7c3aed" x-text="'💜 '+b.content.state.readiness"></span>
+              </div>
+            </template>
+          </div>
+
+          <div x-show="expandedBriefing===b.id" class="px-4 pb-4 border-t border-white/60 pt-3 space-y-3">
+            <template x-if="b.content?.schedule?.length > 0">
+              <div>
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">📅 Расписание</p>
+                <template x-for="s in b.content.schedule" :key="s">
+                  <p class="text-sm text-gray-700">• <span x-text="s"></span></p>
+                </template>
+              </div>
+            </template>
+            <template x-if="b.content?.important_dates?.length > 0">
+              <div>
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">🎯 Важные даты</p>
+                <template x-for="d in b.content.important_dates" :key="d">
+                  <p class="text-sm text-gray-700">• <span x-text="d"></span></p>
+                </template>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+      <div class="h-4"></div>
+    </div>
+
+    <!-- CONTACTS PAGE -->
+    <div x-show="page==='contacts'" class="page-enter px-4 pt-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900">Контакты</h1>
+        <button class="btn-accent w-9 h-9 flex items-center justify-center text-lg" @click="showAddContact=!showAddContact">+</button>
+      </div>
+
+      <!-- Birthday alert -->
+      <template x-if="birthdays.length > 0">
+        <div class="glass p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-pink-400">🎂</span>
+            <span class="font-semibold text-sm text-gray-800">Скоро дни рождения</span>
+          </div>
+          <template x-for="b in birthdays" :key="b.id">
+            <div class="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+              <span class="text-sm font-medium text-gray-800" x-text="b.name"></span>
+              <span class="text-xs text-gray-500" x-text="b.days_until===0?'🎉 Сегодня!':'через '+b.days_until+' дн.'"></span>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <!-- Search -->
+      <div class="relative">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+        <input class="w-full bg-white/60 backdrop-blur-sm rounded-2xl pl-9 pr-3 py-2.5 text-sm outline-none border border-white/60 placeholder-gray-400" placeholder="Поиск..." x-model="contactSearch"/>
+      </div>
+
+      <!-- Filter pills -->
+      <div class="pill-tabs">
+        <button class="pill" :class="contactFilter==='all'?'active':'inactive'" @click="contactFilter='all'">Все</button>
+        <button class="pill" :class="contactFilter==='core'?'active':'inactive'" @click="contactFilter='core'">🔴 Ядро</button>
+        <button class="pill" :class="contactFilter==='close'?'active':'inactive'" @click="contactFilter='close'">🟡 Близкий</button>
+        <button class="pill" :class="contactFilter==='work'?'active':'inactive'" @click="contactFilter='work'">🟢 Рабочий</button>
+        <button class="pill" :class="contactFilter==='extended'?'active':'inactive'" @click="contactFilter='extended'">⚪ Расширенный</button>
+      </div>
+
+      <div class="space-y-2">
+        <template x-for="c in filteredContacts" :key="c.id">
+          <div class="glass-sm px-4 py-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" :style="`background:linear-gradient(135deg,${circleColor(c.circle)},${circleColor(c.circle)}80)`" x-text="c.name[0]"></div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold text-gray-800 truncate" x-text="c.name"></p>
+                <p class="text-xs text-gray-500 truncate" x-text="(c.relation??'') + (c.city?' · '+c.city:'')"></p>
+              </div>
+            </div>
+          </div>
+        </template>
+        <template x-if="filteredContacts.length===0">
+          <div class="glass p-8 text-center"><p class="text-gray-400 text-sm">Нет контактов</p></div>
+        </template>
+      </div>
+      <div class="h-4"></div>
+    </div>
+
+    <!-- SETTINGS PAGE -->
+    <div x-show="page==='settings'" class="page-enter px-4 pt-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900">Настройки</h1>
+        <button class="btn-accent px-3 py-2 text-sm" @click="saveSettings()" x-text="settingsSaved?'✓ Сохранено':'💾 Сохранить'"></button>
+      </div>
+
+      <!-- Role -->
+      <div class="glass p-4">
+        <div class="flex items-center gap-2 mb-3"><span class="text-accent">🛡️</span><p class="font-semibold text-sm text-gray-800">Роль</p></div>
+        <div class="seg-ctrl">
+          <button class="seg-btn" :class="role==='anya'?'active':''" @click="role='anya'">👩‍💼 Аня (ассистент)</button>
+          <button class="seg-btn" :class="role==='den'?'active':''" @click="role='den'">👨‍💻 Ден (босс)</button>
+        </div>
+        <p class="text-xs text-gray-400 mt-2" x-text="role==='anya'?'✅ Видите все разделы, включая Здоровье':'✅ Видите все разделы кроме Здоровья'"></p>
+      </div>
+
+      <!-- Natal -->
+      <div class="glass p-4 space-y-3">
+        <div class="flex items-center gap-2"><span class="text-amber-400">⭐</span><p class="font-semibold text-sm text-gray-800">Натальные данные</p></div>
+        <input class="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm outline-none border border-gray-200 focus:border-accent" type="date" placeholder="Дата рождения" x-model="settings.natal_date"/>
+        <input class="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm outline-none border border-gray-200 focus:border-accent" type="time" placeholder="Время рождения" x-model="settings.natal_time"/>
+        <input class="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm outline-none border border-gray-200 focus:border-accent" placeholder="Город рождения" x-model="settings.natal_city"/>
+      </div>
+
+      <!-- Briefing times -->
+      <div class="glass p-4 space-y-3">
+        <div class="flex items-center gap-2"><span class="text-accent">🕐</span><p class="font-semibold text-sm text-gray-800">Брифинги</p></div>
+        <div class="flex gap-3">
+          <div class="flex-1">
+            <p class="text-xs text-gray-500 mb-1">Утренний</p>
+            <input class="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm outline-none border border-gray-200" type="time" x-model="settings.briefing_morning_time"/>
+          </div>
+          <div class="flex-1">
+            <p class="text-xs text-gray-500 mb-1">Вечерний</p>
+            <input class="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm outline-none border border-gray-200" type="time" x-model="settings.briefing_evening_time"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Access table -->
+      <div class="glass p-4">
+        <div class="flex items-center gap-2 mb-3"><span class="text-accent">👤</span><p class="font-semibold text-sm text-gray-800">Доступ</p></div>
+        <template x-for="item in accessTable" :key="item.domain">
+          <div class="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+            <span class="text-sm text-gray-700" x-text="item.domain"></span>
+            <div class="flex gap-3">
+              <span class="text-xs font-medium" :class="item.anya?'text-green-500':'text-gray-300'" x-text="'Аня '+(item.anya?'✓':'✗')"></span>
+              <span class="text-xs font-medium" :class="item.den?'text-blue-500':'text-gray-300'" x-text="'Ден '+(item.den?'✓':'✗')"></span>
+            </div>
+          </div>
+        </template>
+      </div>
+      <div class="h-4"></div>
+    </div>
+
+    <!-- OTHER PAGES (placeholder) -->
+    <div x-show="['dayquality','meetings','tasks','reminders'].includes(page)" class="page-enter px-4 pt-6 space-y-4">
+      <div class="flex items-center gap-3">
+        <button @click="page='home'" class="w-9 h-9 flex items-center justify-center rounded-full bg-white/60 text-gray-600">←</button>
+        <h1 class="text-2xl font-bold text-gray-900" x-text="pageTitles[page]||page"></h1>
+      </div>
+      <div class="glass p-8 text-center space-y-3">
+        <p class="text-5xl" x-text="pageEmojis[page]||'📋'"></p>
+        <p class="font-semibold text-gray-700" x-text="pageTitles[page]||page"></p>
+        <p class="text-sm text-gray-400">Раздел загружается через Telegram Bot API</p>
+        <button class="btn-accent px-4 py-2.5 text-sm mx-auto block" @click="page='home'">← На главную</button>
+      </div>
+    </div>
+
+  </div><!-- /scroll-view -->
+
+  <!-- Floating Tab Bar -->
+  <div style="position:fixed;bottom:0;left:0;right:0;max-width:430px;margin:0 auto;padding:12px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom,12px));z-index:30;">
+    <div class="tab-bar px-2 py-2 flex items-center justify-around">
+      <template x-for="tab in tabs" :key="tab.page">
+        <template x-if="tab.page!=='health' || role==='anya'">
+          <button class="flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition-all min-w-0 flex-1" :class="page===tab.page?'bg-blue-50':'active:bg-black/5'" @click="goPage(tab.page)">
+            <span class="text-xl leading-none" x-text="tab.emoji"></span>
+            <span class="text-[10px] font-medium leading-none" :class="page===tab.page?'text-accent':'text-gray-400'" x-text="tab.label"></span>
+          </button>
+        </template>
+      </template>
+      <!-- More button -->
+      <button class="flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition-all flex-1" :class="showMoreSheet?'bg-blue-50':''" @click="showMoreSheet=!showMoreSheet">
+        <span class="text-xl leading-none">⋯</span>
+        <span class="text-[10px] font-medium leading-none" :class="showMoreSheet?'text-accent':'text-gray-400'">Ещё</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- More bottom sheet -->
+  <div x-show="showMoreSheet" style="position:fixed;inset:0;z-index:40;" @click.self="showMoreSheet=false">
+    <div style="position:absolute;bottom:0;left:0;right:0;max-width:430px;margin:0 auto;background:rgba(255,255,255,0.95);backdrop-filter:blur(40px);border-radius:32px 32px 0 0;border:1px solid rgba(255,255,255,0.8);border-bottom:none;box-shadow:0 -8px 48px rgba(31,38,135,0.12);">
+      <div class="flex justify-center pt-3 pb-1"><div class="w-10 h-1 bg-gray-200 rounded-full"></div></div>
+      <div class="flex items-center justify-between px-5 pt-2 pb-3">
+        <span class="text-base font-semibold text-gray-800">Ещё</span>
+        <button class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500" @click="showMoreSheet=false">✕</button>
+      </div>
+      <div class="grid grid-cols-4 gap-1 px-4" style="padding-bottom:max(24px,calc(env(safe-area-inset-bottom,0px)+16px))">
+        <template x-for="item in moreItems" :key="item.page">
+          <button class="flex flex-col items-center gap-2 p-3 rounded-2xl transition-all active:scale-95" :class="page===item.page?'bg-blue-50':'" @click="goPage(item.page);showMoreSheet=false">
+            <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl" :class="page===item.page?'bg-accent/20':'bg-gray-100'" x-text="item.emoji"></div>
+            <span class="text-[11px] font-medium text-center leading-tight text-gray-600" x-text="item.label"></span>
+          </button>
+        </template>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function los() {
+  return {
+    page: 'home',
+    role: 'anya',
+    showMoreSheet: false,
+
+    // Dashboard
+    dash: {},
+    urgent: [],
+
+    // Health
+    healthTab: 'meds',
+    meds: [],
+    visits: [],
+    labs: [],
+    expandedLab: null,
+    showAddMed: false,
+    newMed: { name: '', dosage: '', schedule_times: '' },
+
+    // Calendar
+    calDays: 7,
+    calGroups: [],
+
+    // Finances
+    fin: {},
+    showAddExp: false,
+    expText: '',
+
+    // State
+    stateForm: { energy: 7, sleep: 7, workout: false, massage: false, alcohol: false },
+    stateSaving: false,
+    stateSaved: false,
+    todayState: null,
+
+    // Briefing
+    briefings: [],
+    briefingLoading: false,
+    expandedBriefing: null,
+
+    // Contacts
+    contacts: [],
+    birthdays: [],
+    contactSearch: '',
+    contactFilter: 'all',
+    showAddContact: false,
+
+    // Settings
+    settings: {},
+    settingsSaved: false,
+
+    tabs: [
+      { page: 'home', emoji: '🏠', label: 'Главная' },
+      { page: 'health', emoji: '❤️', label: 'Здоровье' },
+      { page: 'calendar', emoji: '📅', label: 'Календарь' },
+      { page: 'finances', emoji: '💰', label: 'Финансы' },
+    ],
+
+    moreItems: [
+      { page: 'state', emoji: '🧠', label: 'Состояние' },
+      { page: 'briefing', emoji: '📋', label: 'Сводка' },
+      { page: 'contacts', emoji: '👥', label: 'Контакты' },
+      { page: 'dayquality', emoji: '✨', label: 'Качество дня' },
+      { page: 'meetings', emoji: '🎙', label: 'Встречи' },
+      { page: 'tasks', emoji: '⚡', label: 'Задачи' },
+      { page: 'reminders', emoji: '🔔', label: 'Напоминания' },
+      { page: 'settings', emoji: '⚙️', label: 'Настройки' },
+    ],
+
+    sections: [
+      { page: 'state', emoji: '🧠', label: 'Состояние', color: '#5B9DB8' },
+      { page: 'briefing', emoji: '📋', label: 'Сводка', color: '#86C1AD' },
+      { page: 'contacts', emoji: '👥', label: 'Контакты', color: '#E4D2B3' },
+      { page: 'dayquality', emoji: '✨', label: 'Качество дня', color: '#B8A0D4' },
+      { page: 'meetings', emoji: '🎙', label: 'Встречи', color: '#F0A0A0' },
+      { page: 'tasks', emoji: '⚡', label: 'Задачи', color: '#A0D4A0' },
+      { page: 'reminders', emoji: '🔔', label: 'Напоминания', color: '#A0C4F0' },
+      { page: 'settings', emoji: '⚙️', label: 'Настройки', color: '#9ca3af' },
+    ],
+
+    pageTitles: { dayquality: 'Качество дня', meetings: 'Встречи', tasks: 'Задачи', reminders: 'Напоминания' },
+    pageEmojis: { dayquality: '✨', meetings: '🎙', tasks: '⚡', reminders: '🔔' },
+
+    accessTable: [
+      { domain: 'Здоровье', anya: true, den: false },
+      { domain: 'Состояние', anya: true, den: true },
+      { domain: 'Сводка', anya: true, den: true },
+      { domain: 'Календарь', anya: true, den: true },
+      { domain: 'Финансы', anya: true, den: true },
+      { domain: 'Контакты', anya: true, den: true },
+      { domain: 'Качество дня', anya: true, den: true },
+      { domain: 'Встречи', anya: true, den: true },
+    ],
+
+    async init() {
+      // Telegram WebApp init
+      if (window.Telegram?.WebApp) {
+        const tg = window.Telegram.WebApp;
+        tg.ready(); tg.expand();
+        tg.setHeaderColor('#F4F6F9');
+        tg.setBackgroundColor('#F4F6F9');
+      }
+      await Promise.all([
+        this.loadDash(),
+        this.loadCalendar(),
+        this.loadFinances(),
+        this.loadState(),
+        this.loadBriefing(),
+        this.loadContacts(),
+        this.loadSettings(),
+      ]);
+      await this.loadHealth();
+    },
+
+    get greeting() {
+      const h = new Date().getHours();
+      if (h < 5) return 'Ночью';
+      if (h < 12) return 'Доброе утро';
+      if (h < 17) return 'Добрый день';
+      if (h < 22) return 'Добрый вечер';
+      return 'Поздний вечер';
+    },
+
+    get userName() { return this.role === 'anya' ? 'Аня' : 'Ден'; },
+
+    get todayStr() {
+      return new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+    },
+
+    get filteredContacts() {
+      return this.contacts
+        .filter(c => this.contactFilter === 'all' || c.circle === this.contactFilter)
+        .filter(c => !this.contactSearch || c.name.toLowerCase().includes(this.contactSearch.toLowerCase()));
+    },
+
+    goPage(pg) {
+      if (pg === 'health' && this.role !== 'anya') return;
+      this.page = pg;
+      this.haptic('light');
+      window.scrollTo(0, 0);
+    },
+
+    haptic(style = 'light') {
+      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred(style);
+    },
+
+    formatMoney(n) {
+      return new Intl.NumberFormat('ru-RU').format(Math.round(n)) + ' ₽';
+    },
+
+    formatTime(dt) {
+      return new Date(dt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    },
+
+    formatDateLabel(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
+      const today = new Date();
+      const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+      if (d.toDateString() === today.toDateString()) return 'Сегодня';
+      if (d.toDateString() === tomorrow.toDateString()) return 'Завтра';
+      return d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' });
+    },
+
+    getDayLoad(events) {
+      const highs = events.filter(e => e.cognitive_load === 'high').length;
+      if (highs >= 2 || events.length >= 5) return 'Перегрузка';
+      if (highs >= 1 || events.length >= 3) return 'Насыщенно';
+      return 'Комфортно';
+    },
+
+    circleColor(circle) {
+      const m = { core: '#ef4444', close: '#eab308', work: '#22c55e', extended: '#9ca3af' };
+      return m[circle] || '#9ca3af';
+    },
+
+    async api(path, method = 'GET', body = null) {
+      try {
+        const opts = { method, headers: { 'Content-Type': 'application/json' } };
+        if (body) opts.body = JSON.stringify(body);
+        const r = await fetch('/api' + path, opts);
+        if (!r.ok) return null;
+        return await r.json();
+      } catch { return null; }
+    },
+
+    async loadDash() {
+      const d = await this.api('/dashboard');
+      if (!d) return;
+      this.dash = d;
+      const u = [];
+      if (!d.state_logged) u.push('Внести состояние сегодня');
+      if (d.medications_pending > 0) u.push(`Таблетки: ${d.medications_pending} не приняты`);
+      (d.upcoming_birthdays || []).forEach(b => {
+        if (b.days_until === 0) u.push(`🎂 Сегодня ДР: ${b.name}`);
+        else if (b.days_until <= 2) u.push(`🎂 Через ${b.days_until} дн. ДР: ${b.name}`);
+      });
+      this.urgent = u;
+    },
+
+    async loadHealth() {
+      const [m, v, l] = await Promise.all([
+        this.api('/health/medications'),
+        this.api('/health/visits'),
+        this.api('/health/labs'),
+      ]);
+      if (m) this.meds = m;
+      if (v) this.visits = v;
+      if (l) this.labs = l;
+    },
+
+    async logIntake(medId, scheduledAt, status) {
+      this.haptic('medium');
+      await this.api(`/health/medications/${medId}/intake`, 'POST', { scheduled_at: scheduledAt, status });
+      await this.loadHealth();
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+    },
+
+    async addMed() {
+      const times = this.newMed.schedule_times.split(',').map(s => s.trim()).filter(Boolean);
+      await this.api('/health/medications', 'POST', { ...this.newMed, schedule_times: JSON.stringify(times) });
+      this.newMed = { name: '', dosage: '', schedule_times: '' };
+      this.showAddMed = false;
+      await this.loadHealth();
+    },
+
+    async loadCalendar() {
+      const evs = await this.api(`/calendar/events?days=${this.calDays}`);
+      if (!evs) return;
+      const groups = {};
+      evs.forEach(e => { if (!groups[e.event_date]) groups[e.event_date] = []; groups[e.event_date].push(e); });
+      this.calGroups = Object.keys(groups).sort().map(d => ({ date: d, events: groups[d] }));
+    },
+
+    async loadFinances() {
+      const d = await this.api('/finances/summary');
+      if (d) this.fin = d;
+    },
+
+    async addExpense() {
+      const m = this.expText.match(/(\d+(?:\.\d+)?)\s*,?\s*(.*)/);
+      if (!m) return;
+      await this.api('/finances/expenses', 'POST', { amount: parseFloat(m[1]), description: m[2]?.trim() || '', category: '' });
+      this.expText = '';
+      this.showAddExp = false;
+      await this.loadFinances();
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+    },
+
+    async loadState() {
+      const [hist, tod] = await Promise.all([
+        this.api('/state/history?days=7'),
+        this.api('/state/today'),
+      ]);
+      this.todayState = tod;
+      if (tod?.energy_subjective) {
+        this.stateForm.energy = tod.energy_subjective;
+        this.stateForm.sleep = tod.sleep_score || 7;
+        this.stateForm.workout = !!tod.workout_done;
+        this.stateForm.massage = !!tod.massage_done;
+        this.stateForm.alcohol = !!tod.alcohol;
+      }
+    },
+
+    async saveState() {
+      this.stateSaving = true;
+      this.haptic('medium');
+      await this.api('/state/log', 'POST', {
+        energy_subjective: this.stateForm.energy,
+        sleep_score: this.stateForm.sleep,
+        workout_done: this.stateForm.workout ? 1 : 0,
+        massage_done: this.stateForm.massage ? 1 : 0,
+        alcohol: this.stateForm.alcohol ? 1 : 0,
+      });
+      this.stateSaving = false;
+      this.stateSaved = true;
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+      setTimeout(() => this.stateSaved = false, 2500);
+      await this.loadDash();
+    },
+
+    async loadBriefing() {
+      this.briefingLoading = true;
+      const d = await this.api('/briefing/today');
+      if (d) this.briefings = d;
+      this.briefingLoading = false;
+    },
+
+    async loadContacts() {
+      const [c, b] = await Promise.all([
+        this.api('/contacts'),
+        this.api('/contacts/birthdays?days=30'),
+      ]);
+      if (c) this.contacts = c;
+      if (b) this.birthdays = b.filter(x => x.days_until <= 7);
+    },
+
+    async loadSettings() {
+      const s = await this.api('/settings');
+      if (s) this.settings = { ...s };
+    },
+
+    async saveSettings() {
+      await this.api('/settings', 'POST', this.settings);
+      this.settingsSaved = true;
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+      setTimeout(() => this.settingsSaved = false, 2500);
+    },
+  }
+}
+</script>
+</body>
+</html>

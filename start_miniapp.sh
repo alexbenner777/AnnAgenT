@@ -1,10 +1,7 @@
 #!/bin/bash
 echo "=== LOS Mini App ==="
-
-# Start FastAPI backend in background (auto-installs fastapi/uvicorn on first run)
+echo "Starting FastAPI backend on port 8001..."
 python miniapp_api.py &
 
-# Install and start frontend
-cd frontend
-npm install
-exec npm run dev
+echo "Starting frontend server on port 5000..."
+exec python los_server.py
