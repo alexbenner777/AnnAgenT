@@ -1,6 +1,9 @@
-"""APScheduler: утренний брифинг 07:00, вечерний дайджест 22:00, тик напоминаний
-о препаратах раз в минуту. Таймзона — pytz (требование APScheduler 3.x)."""
+"""APScheduler: утренний промпт 07:00 → нъюдж +5/+10 мин → авто-бриф +15 мин,
+вечерний дайджест 22:00, тик напоминаний о препаратах раз в минуту.
+Таймзона — pytz (требование APScheduler 3.x)."""
+import json
 import logging
+import os
 from datetime import datetime
 
 import pytz
@@ -13,6 +16,14 @@ from database import crud
 log = logging.getLogger("los.scheduler")
 
 
+def _miniapp_url(path: str = "") -> str | None:
+    """Возвращает публичный URL мини-аппа на Replit или None."""
+    domain = os.getenv("REPLIT_DEV_DOMAIN", "").strip()
+    if domain:
+        return f"https://{domain}{path}"
+    return None
+
+
 async def get_target_chats(services) -> list:
     # 🔒 Только владелец(ы). Раньше слалось во ВСЕ сохранённые чаты — посторонний,
     # нажавший /start, начинал получать личные напоминания. Теперь — никогда.
@@ -20,41 +31,96 @@ async def get_target_chats(services) -> list:
 
 
 async def morning_briefing(services):
-    from agents import decision_support
-    from bot.keyboards import briefing_kb
-    from bot import richmsg
-    text = await decision_support.run(services, mode="morning")
+    """07:00 МСК — приглашение заполнить утренний бриф через мини-апп."""
+    from bot.keyboards import morning_prompt_kb
+    url = _miniapp_url("/briefing-form")
+    text = (
+        "☀️ <b>Доброе утро!</b>\n\n"
+        "Давай заполним утренний бриф — 3 тапа и готово.\n"
+        "Данные помогут подобрать оптимальное расписание и рекомендации на день."
+    )
+    kb = morning_prompt_kb(url)
     for chat in await get_target_chats(services):
         try:
-            await richmsg.send_rich_or_plain(services.bot, services.config.telegram_bot_token,
-                                             chat, text, reply_markup=briefing_kb())
+            await services.bot.send_message(chat, text, parse_mode="HTML", reply_markup=kb)
         except Exception as e:
-            log.error("morning → %s: %s", chat, e)
+            log.error("morning_prompt → %s: %s", chat, e)
 
 
 async def state_nudge(services, stage: int):
-    """Пинг на ввод состояния (ТЗ §4.1): +5 мин после брифинга, затем ещё +5.
+    """Пинг на заполнение брифа (ТЗ §4.1): +5 мин после промпта, затем ещё +5.
     Если состояние за сегодня уже введено — молчим."""
+    from bot.keyboards import morning_prompt_kb
     now = datetime.now(services.config.tz)
     dh = await crud.get_daily_health(services.db, now.date()) or {}
     if dh.get("energy_subjective") is not None:
         return
+    url = _miniapp_url("/briefing-form")
     if stage == 1:
-        text = "📝 Введи состояние на сегодня — /state (энергия, сон, тренировка, 3 тапа)."
+        text = "📝 Ещё не заполнен утренний бриф. Займёт меньше минуты — данные помогут Ане выстроить день."
     else:
-        text = ("📝 Последнее напоминание про /state. "
-                "Не введёшь — дальше работаю по данным Oura и истории.")
+        text = ("📝 Последнее напоминание: бриф не заполнен.\n"
+                "Если не заполнишь — сформирую по данным Oura и истории автоматически.")
+    kb = morning_prompt_kb(url)
     for chat in await get_target_chats(services):
         try:
-            await services.bot.send_message(chat, text)
+            await services.bot.send_message(chat, text, reply_markup=kb)
         except Exception as e:
             log.error("state_nudge → %s: %s", chat, e)
+
+
+async def auto_brief_if_needed(services):
+    """+15 мин после промпта: если бриф не заполнен — генерируем по данным Oura/истории
+    и сохраняем в БД, чтобы мини-апп тоже показал."""
+    from agents import decision_support
+    from bot import richmsg
+    from bot.keyboards import briefing_kb
+
+    now = datetime.now(services.config.tz)
+    dh = await crud.get_daily_health(services.db, now.date()) or {}
+    if dh.get("energy_subjective") is not None:
+        log.info("auto_brief: состояние заполнено, авто-генерация не нужна")
+        return
+
+    log.info("auto_brief: состояние не заполнено — генерируем по данным Oura/истории")
+    text = await decision_support.run(services, mode="morning")
+
+    # Сохраняем в DB (los_miniapp.db через services.db)
+    today = now.date().isoformat()
+    content_json = json.dumps({"raw_text": text, "source": "auto"}, ensure_ascii=False)
+    try:
+        await services.db.execute(
+            "INSERT OR REPLACE INTO briefings (briefing_type, content, briefing_date) VALUES (?,?,?)",
+            "morning", content_json, today)
+    except Exception as e:
+        log.warning("auto_brief: не удалось сохранить в briefings: %s", e)
+
+    url = _miniapp_url("/briefing-form")
+    for chat in await get_target_chats(services):
+        try:
+            await richmsg.send_rich_or_plain(
+                services.bot, services.config.telegram_bot_token,
+                chat, text, reply_markup=briefing_kb(url))
+        except Exception as e:
+            log.error("auto_brief → %s: %s", chat, e)
 
 
 async def evening_digest(services):
     from agents import decision_support
     from bot import richmsg
     text = await decision_support.run(services, mode="evening")
+
+    # Сохраняем вечерний дайджест в БД
+    now = datetime.now(services.config.tz)
+    today = now.date().isoformat()
+    content_json = json.dumps({"raw_text": text, "source": "auto"}, ensure_ascii=False)
+    try:
+        await services.db.execute(
+            "INSERT OR REPLACE INTO briefings (briefing_type, content, briefing_date) VALUES (?,?,?)",
+            "evening", content_json, today)
+    except Exception as e:
+        log.warning("evening_digest: не удалось сохранить: %s", e)
+
     for chat in await get_target_chats(services):
         try:
             await richmsg.send_rich_or_plain(services.bot, services.config.telegram_bot_token, chat, text)
@@ -166,12 +232,19 @@ def setup_scheduler(services) -> AsyncIOScheduler:
     sch = AsyncIOScheduler(timezone=tz)
 
     h, m = map(int, cfg.morning_briefing_time.split(":"))
+    # 07:00 — утренний промпт с кнопкой открыть мини-апп
     sch.add_job(morning_briefing, CronTrigger(hour=h, minute=m), args=[services], id="morning")
-    base = h * 60 + m  # пинги на ввод состояния: +5 и +10 мин после брифинга
+    base = h * 60 + m
+    # +5 мин — первый пинг
     for plus, stage in ((5, 1), (10, 2)):
         t = base + plus
         sch.add_job(state_nudge, CronTrigger(hour=(t // 60) % 24, minute=t % 60),
                     args=[services, stage], id=f"state_nudge{stage}")
+    # +15 мин — авто-бриф если не заполнено
+    t15 = base + 15
+    sch.add_job(auto_brief_if_needed, CronTrigger(hour=(t15 // 60) % 24, minute=t15 % 60),
+                args=[services], id="auto_brief")
+
     eh, em = map(int, cfg.evening_digest_time.split(":"))
     sch.add_job(evening_digest, CronTrigger(hour=eh, minute=em), args=[services], id="evening")
     sch.add_job(medication_tick, IntervalTrigger(minutes=1), args=[services], id="med_tick")

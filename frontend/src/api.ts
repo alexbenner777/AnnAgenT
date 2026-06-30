@@ -38,6 +38,8 @@ export const stateApi = {
 export const briefingApi = {
   getToday: () => api.get<any[]>('/briefing/today').then(r => r.data),
   getHistory: (days = 7) => api.get<any[]>('/briefing/history', { params: { days } }).then(r => r.data),
+  generate: (data: any) => api.post<{ ok: boolean; text: string }>('/briefing/generate', data).then(r => r.data),
+  testTrigger: () => api.post<{ ok: boolean; text: string }>('/briefing/test-trigger', {}).then(r => r.data),
 }
 
 export const contactsApi = {

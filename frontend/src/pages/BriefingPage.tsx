@@ -138,14 +138,22 @@ export default function BriefingPage() {
               {/* Expanded content */}
               {isExpanded && (
                 <div className="px-4 pb-4 border-t border-white/60 pt-4 space-y-3">
-                  {c.day_quality && (
+                  {/* Если брифинг пришёл из мини-аппа или авто — показываем raw_text */}
+                  {c.raw_text && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">📋 Бриф</p>
+                      <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{c.raw_text}</p>
+                    </div>
+                  )}
+                  {/* Структурированный контент (старый формат) */}
+                  {!c.raw_text && c.day_quality && (
                     <div>
                       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">✨ Качество дня</p>
                       {c.day_quality.numerology_day && <p className="text-sm text-gray-600">Нумерология: день {c.day_quality.numerology_day}</p>}
                       {c.day_quality.astro_note && <p className="text-sm text-gray-600">{c.day_quality.astro_note}</p>}
                     </div>
                   )}
-                  {c.schedule?.length > 0 && (
+                  {!c.raw_text && c.schedule?.length > 0 && (
                     <div>
                       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">📅 Расписание</p>
                       {c.schedule.map((s: string, idx: number) => (
@@ -153,7 +161,7 @@ export default function BriefingPage() {
                       ))}
                     </div>
                   )}
-                  {c.important_dates?.length > 0 && (
+                  {!c.raw_text && c.important_dates?.length > 0 && (
                     <div>
                       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">🎯 Важные даты</p>
                       {c.important_dates.map((d: string, idx: number) => (
@@ -161,7 +169,7 @@ export default function BriefingPage() {
                       ))}
                     </div>
                   )}
-                  {c.finances && (
+                  {!c.raw_text && c.finances && (
                     <div>
                       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">💰 Финансы</p>
                       <p className="text-sm text-gray-700">{c.finances.balance_trend}</p>

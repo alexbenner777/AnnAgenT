@@ -835,6 +835,161 @@ def get_briefing_history(days: int = Query(7)):
     return result
 
 
+@app.post("/api/briefing/generate")
+def generate_briefing(data: dict):
+    """Сохранить метрики из формы мини-аппа и сгенерировать брифинг."""
+    conn = get_db()
+    today = date.today().isoformat()
+
+    # 1. Сохранить состояние
+    allowed_state = ["energy_subjective", "sleep_score", "sleep_hours",
+                     "workout_done", "massage_done", "alcohol"]
+    updates = {k: v for k, v in data.items() if k in allowed_state and v is not None}
+    if updates:
+        conn.execute("INSERT OR IGNORE INTO daily_health (date) VALUES (?)", (today,))
+        set_clause = ", ".join(f"{k}=?" for k in updates)
+        conn.execute(f"UPDATE daily_health SET {set_clause} WHERE date=?",
+                     (*updates.values(), today))
+        conn.commit()
+
+    # 2. Прочитать актуальные данные
+    row = conn.execute("SELECT * FROM daily_health WHERE date=?", (today,)).fetchone()
+    state = dict(row) if row else {}
+
+    energy = state.get("energy_subjective") or data.get("energy_subjective", "?")
+    sleep = state.get("sleep_score") or data.get("sleep_score", "?")
+    workout = bool(state.get("workout_done"))
+    alcohol = bool(state.get("alcohol"))
+
+    # 3. Генерация текста
+    briefing_text = _generate_briefing_text_ai(energy, sleep, workout, alcohol)
+
+    # 4. Сохранить в briefings (заменить, если уже есть на сегодня)
+    content_json = json.dumps({
+        "raw_text": briefing_text,
+        "state": {
+            "energy": energy,
+            "sleep": sleep,
+            "workout": "да" if workout else "нет",
+            "alcohol": "да" if alcohol else "нет",
+        },
+        "source": "miniapp_form",
+    }, ensure_ascii=False)
+    conn.execute("DELETE FROM briefings WHERE briefing_date=? AND briefing_type='morning'", (today,))
+    conn.execute(
+        "INSERT INTO briefings (briefing_type, content, briefing_date) VALUES (?,?,?)",
+        ("morning", content_json, today))
+    conn.commit()
+    conn.close()
+
+    # 5. Отправить в Telegram всем владельцам
+    _send_tg_briefing(briefing_text)
+
+    return {"ok": True, "text": briefing_text}
+
+
+@app.post("/api/briefing/test-trigger")
+def test_briefing_trigger():
+    """Тестовый запуск брифа из Настроек — генерирует по текущим данным."""
+    conn = get_db()
+    today = date.today().isoformat()
+    row = conn.execute("SELECT * FROM daily_health WHERE date=?", (today,)).fetchone()
+    state = dict(row) if row else {}
+    conn.close()
+
+    energy = state.get("energy_subjective", 7)
+    sleep = state.get("sleep_score", 7)
+    workout = bool(state.get("workout_done"))
+    alcohol = bool(state.get("alcohol"))
+
+    briefing_text = _generate_briefing_text_ai(energy, sleep, workout, alcohol)
+
+    conn = get_db()
+    content_json = json.dumps({"raw_text": briefing_text, "source": "test"}, ensure_ascii=False)
+    conn.execute("DELETE FROM briefings WHERE briefing_date=? AND briefing_type='morning'", (today,))
+    conn.execute(
+        "INSERT INTO briefings (briefing_type, content, briefing_date) VALUES (?,?,?)",
+        ("morning", content_json, today))
+    conn.commit()
+    conn.close()
+
+    _send_tg_briefing(f"🧪 <i>Тестовый запуск</i>\n\n{briefing_text}")
+    return {"ok": True, "text": briefing_text}
+
+
+def _generate_briefing_text_ai(energy, sleep, workout: bool, alcohol: bool) -> str:
+    """Генерация текста брифинга через Anthropic Claude или шаблон."""
+    import os
+    api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    base_url = os.getenv("AI_INTEGRATIONS_ANTHROPIC_BASE_URL", "")
+
+    prompt = (
+        f"Данные состояния на сегодня: энергия {energy}/10, сон {sleep}/10, "
+        f"тренировка {'была' if workout else 'не было'}, "
+        f"алкоголь вчера: {'да' if alcohol else 'нет'}.\n\n"
+        "Составь краткий утренний брифинг по-русски: 1) оцени состояние (1–2 предложения), "
+        "2) дай 2–3 конкретных рекомендации по расписанию и нагрузке на сегодня "
+        "с учётом показателей. Без вступлений «конечно» и «отлично». "
+        "Используй эмодзи экономно. Максимум 150 слов."
+    )
+
+    if api_key:
+        try:
+            kwargs: dict = {"api_key": api_key}
+            if base_url:
+                kwargs["base_url"] = base_url
+            from anthropic import Anthropic
+            client = Anthropic(**kwargs)
+            msg = client.messages.create(
+                model=os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8"),
+                max_tokens=400,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return msg.content[0].text.strip()
+        except Exception as e:
+            import logging
+            logging.getLogger("los.api").warning("Claude недоступен: %s", e)
+
+    # Шаблонный фолбэк
+    level = "высокая" if energy >= 8 else "средняя" if energy >= 5 else "низкая"
+    rec = []
+    if energy < 6 or sleep < 6:
+        rec.append("избегай тяжёлых когнитивных задач и переговоров")
+    else:
+        rec.append("хороший день для сложных решений и переговоров")
+    if alcohol:
+        rec.append("избегай интенсивных тренировок")
+    if not workout and energy >= 7:
+        rec.append("подходящий день для тренировки")
+    recs = "; ".join(rec) if rec else "стандартный режим"
+    return (
+        f"☀️ Утренний бриф\n\n"
+        f"⚡ Состояние: {level} (энергия {energy}/10, сон {sleep}/10"
+        f"{', алкоголь вчера' if alcohol else ''})\n\n"
+        f"🎯 Рекомендации: {recs}."
+    )
+
+
+def _send_tg_briefing(text: str):
+    """Отправить текст брифинга всем владельцам через Telegram Bot API."""
+    import os
+    import httpx
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    owner_ids = _parse_owner_ids()
+    if not token or not owner_ids:
+        return
+    safe = text[:4096]
+    for chat_id in owner_ids:
+        try:
+            httpx.post(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                json={"chat_id": chat_id, "text": safe, "parse_mode": "HTML"},
+                timeout=10,
+            )
+        except Exception:
+            pass
+
+
 # ── CONTACTS ──────────────────────────────────────────────────────────────
 
 @app.get("/api/contacts")

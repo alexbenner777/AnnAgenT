@@ -2,7 +2,7 @@
 from datetime import datetime
 
 from aiogram.types import (InlineKeyboardMarkup, InlineKeyboardButton,
-                           ReplyKeyboardMarkup, KeyboardButton)
+                           ReplyKeyboardMarkup, KeyboardButton, WebAppInfo)
 
 B = InlineKeyboardButton
 
@@ -42,7 +42,6 @@ GROUPS = {
         ("💊 Таблетки", "meds"),
     ]),
     "day": ("☀️ Мой день", [
-        ("☀️ Брифинг", "briefing"),
         ("🔮 Качество дня", "day"),
         ("🌙 Итог дня", "digest"),
     ]),
@@ -119,12 +118,23 @@ def esoteric_kb() -> InlineKeyboardMarkup:
         B(text="🔍 Расшифровка (почему так)", callback_data="eso:facts")]])
 
 
-def briefing_kb() -> InlineKeyboardMarkup:
-    """Под утренней сводкой: внести состояние в один тап + расшифровка качества дня."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [B(text="✍️ Внести состояние", callback_data="menu:state")],
-        [B(text="🔍 Расшифровка (почему так)", callback_data="eso:facts")],
-    ])
+def morning_prompt_kb(web_app_url: str | None = None) -> InlineKeyboardMarkup:
+    """Утренний промпт: кнопка открывает мини-апп на форме заполнения брифа."""
+    rows = []
+    if web_app_url:
+        rows.append([B(text="📋 Заполнить бриф", web_app=WebAppInfo(url=web_app_url))])
+    rows.append([B(text="✍️ Внести состояние вручную", callback_data="menu:state")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def briefing_kb(web_app_url: str | None = None) -> InlineKeyboardMarkup:
+    """Под готовым брифом: открыть форму в мини-аппе + расшифровка качества дня."""
+    rows = []
+    if web_app_url:
+        rows.append([B(text="📋 Открыть в мини-аппе", web_app=WebAppInfo(url=web_app_url))])
+    rows.append([B(text="✍️ Внести состояние", callback_data="menu:state")])
+    rows.append([B(text="🔍 Расшифровка (почему так)", callback_data="eso:facts")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def reminder_action_kb(rem_id: int, scheduled: datetime) -> InlineKeyboardMarkup:

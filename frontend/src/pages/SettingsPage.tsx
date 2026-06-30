@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Save, User, Clock, Star, Link, Shield } from 'lucide-react'
+import { Save, User, Clock, Star, Link, Shield, FlaskConical } from 'lucide-react'
 import GlassCard from '../components/GlassCard'
 import PageHeader from '../components/PageHeader'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { settingsApi } from '../api'
+import { settingsApi, briefingApi } from '../api'
 import { useUser } from '../App'
 
 function haptic(s: 'light' | 'medium' = 'light') {
@@ -16,6 +16,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [testBriefing, setTestBriefing] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
   const [form, setForm] = useState({
     natal_date: '',
     natal_time: '',
@@ -209,6 +210,38 @@ export default function SettingsPage() {
               </div>
             ))}
           </div>
+        </GlassCard>
+
+        {/* Dev / Test tools */}
+        <GlassCard delay={0.20} className="p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <FlaskConical size={15} className="text-violet-400" />
+            <p className="font-semibold text-gray-800 text-sm">Разработка</p>
+          </div>
+          <button
+            onClick={async () => {
+              haptic('medium')
+              setTestBriefing('loading')
+              try {
+                await briefingApi.testTrigger()
+                setTestBriefing('done')
+                setTimeout(() => setTestBriefing('idle'), 3000)
+                window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
+              } catch {
+                setTestBriefing('error')
+                setTimeout(() => setTestBriefing('idle'), 3000)
+              }
+            }}
+            disabled={testBriefing === 'loading'}
+            className="w-full py-3 rounded-2xl text-sm font-semibold border border-violet-200 text-violet-600 bg-violet-50 flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            <FlaskConical size={14} />
+            {testBriefing === 'idle' && 'Тест: запустить бриф сейчас'}
+            {testBriefing === 'loading' && 'Генерирую…'}
+            {testBriefing === 'done' && '✓ Бриф отправлен в Telegram'}
+            {testBriefing === 'error' && '⚠️ Ошибка — попробуй ещё раз'}
+          </button>
+          <p className="text-xs text-gray-400">Генерирует брифинг по текущим данным и отправляет в Telegram. Только для проверки.</p>
         </GlassCard>
 
         <div className="h-4" />

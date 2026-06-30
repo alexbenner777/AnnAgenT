@@ -4,6 +4,7 @@ import type { UserRole } from './types'
 import { authApi } from './api'
 
 // Pages
+import BriefingFormPage from './pages/BriefingFormPage'
 import HomePage from './pages/HomePage'
 import HealthPage from './pages/HealthPage'
 import CalendarPage from './pages/CalendarPage'
@@ -81,6 +82,8 @@ export default function App() {
       <BrowserRouter>
         <BackgroundBlobs />
         <Routes>
+          {/* Fullscreen route — без нижней навигации (открывается из Telegram WebApp) */}
+          <Route path="/briefing-form" element={<BriefingFormPage />} />
           <Route element={<Layout />}>
             <Route index element={<HomePage />} />
             <Route path="/health" element={
