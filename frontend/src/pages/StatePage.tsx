@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react'
 import { Check, X, Save } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  LineChart, Line
 } from 'recharts'
 import GlassCard from '../components/GlassCard'
 import PageHeader from '../components/PageHeader'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { stateApi } from '../api'
+import { useUser } from '../App'
 
 function haptic(s: 'light' | 'medium' = 'light') {
   window.Telegram?.WebApp?.HapticFeedback?.impactOccurred(s)
@@ -15,8 +15,9 @@ function haptic(s: 'light' | 'medium' = 'light') {
 
 interface SliderProps {
   label: string; value: number; onChange: (v: number) => void; max?: number; color?: string
+  readOnly?: boolean
 }
-function Slider({ label, value, onChange, max = 10, color = '#5B9DB8' }: SliderProps) {
+function Slider({ label, value, onChange, max = 10, color = '#5B9DB8', readOnly }: SliderProps) {
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
@@ -27,22 +28,27 @@ function Slider({ label, value, onChange, max = 10, color = '#5B9DB8' }: SliderP
         <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
           <div className="h-full rounded-full transition-all" style={{ width: `${(value / max) * 100}%`, background: `linear-gradient(90deg, ${color}80, ${color})` }} />
         </div>
-        <input
-          type="range" min={1} max={max} value={value}
-          onChange={e => { haptic('light'); onChange(parseInt(e.target.value)) }}
-          className="absolute inset-0 w-full opacity-0 cursor-pointer h-6"
-        />
+        {!readOnly && (
+          <input
+            type="range" min={1} max={max} value={value}
+            onChange={e => { haptic('light'); onChange(parseInt(e.target.value)) }}
+            className="absolute inset-0 w-full opacity-0 cursor-pointer h-6"
+          />
+        )}
       </div>
     </div>
   )
 }
 
-interface ToggleProps { label: string; value: boolean; onChange: (v: boolean) => void; emoji?: string }
-function Toggle({ label, value, onChange, emoji }: ToggleProps) {
+interface ToggleProps { label: string; value: boolean; onChange: (v: boolean) => void; emoji?: string; readOnly?: boolean }
+function Toggle({ label, value, onChange, emoji, readOnly }: ToggleProps) {
   return (
     <button
-      onClick={() => { haptic(); onChange(!value) }}
-      className={`flex items-center justify-between p-3 rounded-2xl transition-all active:scale-95 ${value ? 'bg-accent/10 border border-accent/20' : 'bg-gray-50 border border-transparent'}`}
+      onClick={() => { if (!readOnly) { haptic(); onChange(!value) } }}
+      disabled={readOnly}
+      className={`flex items-center justify-between p-3 rounded-2xl transition-all ${
+        readOnly ? 'cursor-default' : 'active:scale-95'
+      } ${value ? 'bg-accent/10 border border-accent/20' : 'bg-gray-50 border border-transparent'}`}
     >
       <div className="flex items-center gap-2">
         {emoji && <span className="text-base">{emoji}</span>}
@@ -55,11 +61,10 @@ function Toggle({ label, value, onChange, emoji }: ToggleProps) {
   )
 }
 
-const CHART_COLORS = {
-  energy: '#5B9DB8', sleep: '#86C1AD', readiness: '#B8A0D4', hrv: '#E4D2B3'
-}
-
 export default function StatePage() {
+  const { role } = useUser()
+  const isAnya = role === 'anya'
+
   const [history, setHistory] = useState<any[]>([])
   const [today, setToday] = useState<any>({})
   const [loading, setLoading] = useState(true)
@@ -124,13 +129,17 @@ export default function StatePage() {
   return (
     <div className="page-scroll h-full overflow-y-auto">
       <div className="px-4 pt-6 pb-4 space-y-4">
-        <PageHeader title="Состояние" subtitle="Neuro & Bio" />
+        <PageHeader
+          title="Состояние"
+          subtitle={isAnya ? 'Neuro & Bio · ввод данных' : 'Neuro & Bio · динамика'}
+        />
 
-        {/* Today's input */}
+        {/* Форма — только Аня вводит данные */}
         <GlassCard delay={0.05} className="p-5 space-y-5">
           <div className="flex items-center justify-between">
             <p className="font-semibold text-gray-800">Сегодня</p>
-            {saved && <span className="badge bg-green-50 text-green-600 text-xs">✓ Сохранено</span>}
+            {isAnya && saved && <span className="badge bg-green-50 text-green-600 text-xs">✓ Сохранено</span>}
+            {!isAnya && <span className="badge bg-gray-100 text-gray-500 text-xs">Вводит Аня</span>}
           </div>
 
           <Slider
@@ -138,31 +147,35 @@ export default function StatePage() {
             value={form.energy_subjective}
             onChange={v => setForm(p => ({...p, energy_subjective: v}))}
             color="#5B9DB8"
+            readOnly={!isAnya}
           />
           <Slider
             label="Качество сна"
             value={form.sleep_score}
             onChange={v => setForm(p => ({...p, sleep_score: v}))}
             color="#86C1AD"
+            readOnly={!isAnya}
           />
 
           <div className="space-y-2">
-            <Toggle label="Тренировка" value={form.workout_done} onChange={v => setForm(p => ({...p, workout_done: v}))} emoji="🏃" />
-            <Toggle label="Массаж" value={form.massage_done} onChange={v => setForm(p => ({...p, massage_done: v}))} emoji="💆" />
-            <Toggle label="Алкоголь вчера" value={form.alcohol} onChange={v => setForm(p => ({...p, alcohol: v}))} emoji="🍷" />
+            <Toggle label="Тренировка" value={form.workout_done} onChange={v => setForm(p => ({...p, workout_done: v}))} emoji="🏃" readOnly={!isAnya} />
+            <Toggle label="Массаж" value={form.massage_done} onChange={v => setForm(p => ({...p, massage_done: v}))} emoji="💆" readOnly={!isAnya} />
+            <Toggle label="Алкоголь вчера" value={form.alcohol} onChange={v => setForm(p => ({...p, alcohol: v}))} emoji="🍷" readOnly={!isAnya} />
           </div>
 
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full accent-button py-3 flex items-center justify-center gap-2"
-          >
-            <Save size={16} />
-            {saving ? 'Сохраняем...' : 'Сохранить состояние'}
-          </button>
+          {isAnya && (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full accent-button py-3 flex items-center justify-center gap-2"
+            >
+              <Save size={16} />
+              {saving ? 'Сохраняем...' : 'Сохранить состояние'}
+            </button>
+          )}
         </GlassCard>
 
-        {/* Oura-style data */}
+        {/* Oura-данные */}
         {(today?.readiness_score || today?.hrv_avg) && (
           <div className="grid grid-cols-2 gap-3">
             {today.readiness_score && (
@@ -198,7 +211,7 @@ export default function StatePage() {
           </div>
         )}
 
-        {/* 7-day charts */}
+        {/* Графики за 7 дней */}
         {chartData.length > 0 && (
           <>
             <GlassCard delay={0.18} className="p-4">

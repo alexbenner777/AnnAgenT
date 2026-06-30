@@ -4,6 +4,7 @@ import GlassCard from '../components/GlassCard'
 import PageHeader from '../components/PageHeader'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { briefingApi } from '../api'
+import { useUser } from '../App'
 
 function haptic(s: 'light' | 'medium' = 'light') {
   window.Telegram?.WebApp?.HapticFeedback?.impactOccurred(s)
@@ -22,6 +23,7 @@ function formatBriefingText(b: any): string {
 }
 
 export default function BriefingPage() {
+  const { role } = useUser()
   const [briefings, setBriefings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<number | null>(null)
@@ -174,12 +176,14 @@ export default function BriefingPage() {
                     >
                       <RefreshCw size={13} /> Обновить
                     </button>
-                    <button
-                      onClick={() => handleForward(b)}
-                      className="flex-1 accent-button py-2.5 flex items-center justify-center gap-1.5 text-xs"
-                    >
-                      <Send size={13} /> Переслать Дену
-                    </button>
+                    {role === 'anya' && (
+                      <button
+                        onClick={() => handleForward(b)}
+                        className="flex-1 accent-button py-2.5 flex items-center justify-center gap-1.5 text-xs"
+                      >
+                        <Send size={13} /> Переслать Дену
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

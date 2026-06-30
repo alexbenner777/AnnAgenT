@@ -7,25 +7,6 @@ import {
 } from 'lucide-react'
 import { useUser } from '../App'
 
-const TAB_ITEMS = [
-  { path: '/', icon: Home, label: 'Главная' },
-  { path: '/health', icon: Heart, label: 'Здоровье', anyaOnly: true },
-  { path: '/calendar', icon: Calendar, label: 'Календарь' },
-  { path: '/finances', icon: Wallet, label: 'Финансы' },
-  { path: '/more', icon: MoreHorizontal, label: 'Ещё' },
-]
-
-const MORE_ITEMS = [
-  { path: '/state', icon: Activity, label: 'Состояние', emoji: '🧠' },
-  { path: '/briefing', icon: BookOpen, label: 'Сводка', emoji: '📋' },
-  { path: '/contacts', icon: Users, label: 'Контакты', emoji: '👥' },
-  { path: '/day-quality', icon: Star, label: 'Качество дня', emoji: '✨' },
-  { path: '/meetings', icon: Mic, label: 'Встречи', emoji: '🎙' },
-  { path: '/tasks', icon: CheckSquare, label: 'Задачи', emoji: '⚡' },
-  { path: '/reminders', icon: Bell, label: 'Напоминания', emoji: '🔔' },
-  { path: '/settings', icon: Settings, label: 'Настройки', emoji: '⚙️' },
-]
-
 function haptic(style: 'light' | 'medium' | 'heavy' = 'light') {
   window.Telegram?.WebApp?.HapticFeedback?.impactOccurred(style)
 }
@@ -42,10 +23,46 @@ export default function Layout() {
     return currentPath.startsWith(path)
   }
 
-  const visibleTabs = TAB_ITEMS.filter(t => {
-    if (t.anyaOnly && role !== 'anya') return false
-    return true
-  })
+  // Аня: Главная | Здоровье | Сводка | Календарь | Ещё
+  // Ден: Главная | Сводка | Состояние | Календарь | Ещё
+  const TAB_ITEMS = role === 'anya'
+    ? [
+        { path: '/',         icon: Home,          label: 'Главная'  },
+        { path: '/health',   icon: Heart,         label: 'Здоровье' },
+        { path: '/briefing', icon: BookOpen,      label: 'Сводка'   },
+        { path: '/calendar', icon: Calendar,      label: 'Календарь'},
+        { path: '/more',     icon: MoreHorizontal,label: 'Ещё'      },
+      ]
+    : [
+        { path: '/',         icon: Home,          label: 'Главная'  },
+        { path: '/briefing', icon: BookOpen,      label: 'Сводка'   },
+        { path: '/state',    icon: Activity,      label: 'Состояние'},
+        { path: '/calendar', icon: Calendar,      label: 'Календарь'},
+        { path: '/more',     icon: MoreHorizontal,label: 'Ещё'      },
+      ]
+
+  // Аня: Состояние первым (ежедневный ввод), потом всё остальное
+  // Ден: без здоровья, Финансы первыми
+  const MORE_ITEMS = role === 'anya'
+    ? [
+        { path: '/state',       icon: Activity,    label: 'Состояние',    emoji: '🧠' },
+        { path: '/finances',    icon: Wallet,      label: 'Финансы',      emoji: '💰' },
+        { path: '/contacts',    icon: Users,       label: 'Контакты',     emoji: '👥' },
+        { path: '/day-quality', icon: Star,        label: 'Качество дня', emoji: '✨' },
+        { path: '/meetings',    icon: Mic,         label: 'Встречи',      emoji: '🎙' },
+        { path: '/tasks',       icon: CheckSquare, label: 'Задачи',       emoji: '⚡' },
+        { path: '/reminders',   icon: Bell,        label: 'Напоминания',  emoji: '🔔' },
+        { path: '/settings',    icon: Settings,    label: 'Настройки',    emoji: '⚙️' },
+      ]
+    : [
+        { path: '/finances',    icon: Wallet,      label: 'Финансы',      emoji: '💰' },
+        { path: '/contacts',    icon: Users,       label: 'Контакты',     emoji: '👥' },
+        { path: '/day-quality', icon: Star,        label: 'Качество дня', emoji: '✨' },
+        { path: '/meetings',    icon: Mic,         label: 'Встречи',      emoji: '🎙' },
+        { path: '/tasks',       icon: CheckSquare, label: 'Задачи',       emoji: '⚡' },
+        { path: '/reminders',   icon: Bell,        label: 'Напоминания',  emoji: '🔔' },
+        { path: '/settings',    icon: Settings,    label: 'Настройки',    emoji: '⚙️' },
+      ]
 
   const handleTabClick = (path: string) => {
     haptic('light')
@@ -90,7 +107,7 @@ export default function Layout() {
           className="glass-tab-bar px-2 py-2 flex items-center justify-around w-full"
           style={{ paddingBottom: `max(8px, env(safe-area-inset-bottom, 8px))` }}
         >
-          {visibleTabs.map((tab) => {
+          {TAB_ITEMS.map((tab) => {
             const Icon = tab.icon
             const active = tab.path === '/more' ? isMoreActive || showMore : isActive(tab.path)
             return (

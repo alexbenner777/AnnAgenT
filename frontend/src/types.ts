@@ -16,6 +16,8 @@ declare global {
           enable: () => void
           disable: () => void
         }
+        showAlert: (message: string, callback?: () => void) => void
+        showConfirm: (message: string, callback?: (confirmed: boolean) => void) => void
         HapticFeedback: {
           impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void
           notificationOccurred: (type: 'error' | 'success' | 'warning') => void
