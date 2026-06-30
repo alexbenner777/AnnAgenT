@@ -14,10 +14,6 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 8001
-externalPort = 3001
-
-[[ports]]
 localPort = 8080
 externalPort = 80
 
@@ -37,15 +33,22 @@ args = "Start application"
 name = "Start application"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "webview"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "bash start_miniapp.sh"
 waitForPort = 5000
 
-[workflows.workflow.metadata]
-outputType = "webview"
-
 [agent]
 expertMode = true
+stack = "BEST_EFFORT_FALLBACK"
+
+[userenv]
+
+[userenv.shared]
+LOS_TIMEZONE = "Europe/Moscow"
+LOS_DB_PATH = "los_miniapp.db"
 
 
