@@ -461,14 +461,14 @@ function buildFeedItems(meds: any[], reminders: any[], dashData: any): FeedItem[
     }
   }
 
-  // 4. Birthdays today / ≤2 days
+  // 4. Birthdays today only (upcoming go to recommendation cards, not here)
   for (const b of (dashData?.upcoming_birthdays ?? [])) {
-    if (b.days_until <= 2) {
+    if (b.days_until === 0) {
       items.push({
         id: `bday_${b.name}`,
         type: 'birthday',
-        title: b.days_until === 0 ? `🎉 Сегодня ДР: ${b.name}` : `ДР через ${b.days_until} дн.: ${b.name}`,
-        urgent: b.days_until === 0,
+        title: `🎉 Сегодня ДР: ${b.name}`,
+        urgent: true,
       })
     }
   }
