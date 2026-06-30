@@ -17,10 +17,6 @@ externalPort = 80
 localPort = 8001
 externalPort = 3000
 
-[[ports]]
-localPort = 8080
-externalPort = 80
-
 [workflows]
 runButton = "Project"
 
@@ -54,5 +50,3 @@ stack = "BEST_EFFORT_FALLBACK"
 [userenv.shared]
 LOS_TIMEZONE = "Europe/Moscow"
 LOS_DB_PATH = "los_miniapp.db"
-
-
