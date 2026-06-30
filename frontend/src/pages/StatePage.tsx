@@ -73,7 +73,7 @@ export default function StatePage() {
 
   const [form, setForm] = useState({
     energy_subjective: 7,
-    sleep_score: 7,
+    sleep_score: 70,
     workout_done: false,
     massage_done: false,
     alcohol: false,
@@ -86,7 +86,7 @@ export default function StatePage() {
         if (tod && tod.energy_subjective !== null) {
           setForm({
             energy_subjective: tod.energy_subjective || 7,
-            sleep_score: tod.sleep_score || 7,
+            sleep_score: tod.sleep_score || 70,
             workout_done: !!tod.workout_done,
             massage_done: !!tod.massage_done,
             alcohol: !!tod.alcohol,
@@ -153,6 +153,7 @@ export default function StatePage() {
             label="Качество сна"
             value={form.sleep_score}
             onChange={v => setForm(p => ({...p, sleep_score: v}))}
+            max={100}
             color="#86C1AD"
             readOnly={!isAnya}
           />
@@ -215,17 +216,13 @@ export default function StatePage() {
         {chartData.length > 0 && (
           <>
             <GlassCard delay={0.18} className="p-4">
-              <p className="font-semibold text-gray-800 text-sm mb-3">Энергия и Сон — 7 дней</p>
-              <ResponsiveContainer width="100%" height={120}>
+              <p className="font-semibold text-gray-800 text-sm mb-3">Энергия — 7 дней <span className="text-xs text-gray-400 font-normal">(из 10)</span></p>
+              <ResponsiveContainer width="100%" height={100}>
                 <AreaChart data={chartData}>
                   <defs>
                     <linearGradient id="energyGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#5B9DB8" stopOpacity={0.25} />
                       <stop offset="100%" stopColor="#5B9DB8" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="sleepGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#86C1AD" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="#86C1AD" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
@@ -235,19 +232,22 @@ export default function StatePage() {
                     labelStyle={{ fontWeight: 600 }}
                   />
                   <Area type="monotone" dataKey="Энергия" stroke="#5B9DB8" strokeWidth={2} fill="url(#energyGrad)" dot={false} />
-                  <Area type="monotone" dataKey="Сон" stroke="#86C1AD" strokeWidth={2} fill="url(#sleepGrad)" dot={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </GlassCard>
 
             <GlassCard delay={0.2} className="p-4">
-              <p className="font-semibold text-gray-800 text-sm mb-3">Готовность (Readiness) — 7 дней</p>
-              <ResponsiveContainer width="100%" height={100}>
+              <p className="font-semibold text-gray-800 text-sm mb-3">Готовность и Сон — 7 дней <span className="text-xs text-gray-400 font-normal">(из 100)</span></p>
+              <ResponsiveContainer width="100%" height={120}>
                 <AreaChart data={chartData}>
                   <defs>
                     <linearGradient id="readGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#B8A0D4" stopOpacity={0.25} />
                       <stop offset="100%" stopColor="#B8A0D4" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="sleepGrad2" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#86C1AD" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="#86C1AD" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
@@ -256,6 +256,7 @@ export default function StatePage() {
                     contentStyle={{ background: 'rgba(255,255,255,0.95)', border: 'none', borderRadius: 12, fontSize: 11 }}
                   />
                   <Area type="monotone" dataKey="Готовность" stroke="#B8A0D4" strokeWidth={2} fill="url(#readGrad)" dot={false} />
+                  <Area type="monotone" dataKey="Сон" stroke="#86C1AD" strokeWidth={2} fill="url(#sleepGrad2)" dot={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </GlassCard>

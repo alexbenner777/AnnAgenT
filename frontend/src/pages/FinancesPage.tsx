@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Plus, TrendingDown, TrendingUp, AlertCircle, Send } from 'lucide-react'
+import { useUser } from '../App'
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
   AreaChart, Area, XAxis, YAxis
@@ -18,6 +19,8 @@ function haptic(s: 'light' | 'medium' = 'light') {
 }
 
 export default function FinancesPage() {
+  const { role } = useUser()
+  const isAnya = role === 'anya'
   const [summary, setSummary] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [showAddExpense, setShowAddExpense] = useState(false)
@@ -92,18 +95,18 @@ export default function FinancesPage() {
         <PageHeader
           title="Финансы"
           subtitle={new Date().toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
-          action={
+          action={isAnya ? (
             <button
               onClick={() => { haptic(); setShowAddExpense(true) }}
               className="accent-button flex items-center gap-1.5 px-3 py-2 text-sm"
             >
               <Plus size={15} /> Расход
             </button>
-          }
+          ) : undefined}
         />
 
-        {/* Quick add floating */}
-        {showAddExpense && (
+        {/* Quick add floating — только Аня */}
+        {isAnya && showAddExpense && (
           <GlassCard className="p-4 space-y-3">
             <div className="flex items-center justify-between">
               <p className="font-semibold text-gray-800 text-sm">Внести расход</p>
@@ -220,7 +223,7 @@ export default function FinancesPage() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="flex-1 space-y-1.5">
-                {summary.by_category.slice(0, 5).map((cat: any, i: number) => (
+                {summary.by_category.slice(0, 7).map((cat: any, i: number) => (
                   <div key={cat.category} className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <div className="w-2 h-2 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />

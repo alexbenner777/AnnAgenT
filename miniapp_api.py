@@ -153,6 +153,7 @@ def init_db():
         participants TEXT,
         format TEXT DEFAULT 'protocol',
         risk_flag TEXT,
+        shareable INTEGER DEFAULT 0,
         created_at TEXT DEFAULT (datetime('now'))
     );
 
@@ -758,6 +759,16 @@ def get_upcoming_birthdays(days: int = Query(30)):
 
 # ── MEETINGS ──────────────────────────────────────────────────────────────
 
+@app.on_event("startup")
+def _migrate_meetings_shareable():
+    try:
+        conn = get_db()
+        conn.execute("ALTER TABLE meetings ADD COLUMN shareable INTEGER DEFAULT 0")
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass  # column already exists
+
 @app.get("/api/meetings")
 def get_meetings():
     conn = get_db()
@@ -769,11 +780,12 @@ def get_meetings():
 def add_meeting(data: dict):
     conn = get_db()
     conn.execute("""INSERT INTO meetings
-        (title, transcript, summary, meeting_date, participants, format, risk_flag)
-        VALUES (?,?,?,?,?,?,?)""",
+        (title, transcript, summary, meeting_date, participants, format, risk_flag, shareable)
+        VALUES (?,?,?,?,?,?,?,?)""",
         (data.get("title"), data.get("transcript"), data.get("summary"),
          data.get("meeting_date", date.today().isoformat()),
-         data.get("participants"), data.get("format","protocol"), data.get("risk_flag")))
+         data.get("participants"), data.get("format","protocol"), data.get("risk_flag"),
+         1 if data.get("shareable") else 0))
     conn.commit(); conn.close()
     return {"ok": True}
 
@@ -785,6 +797,14 @@ def get_meeting(meeting_id: int):
     if not row:
         raise HTTPException(404, "Meeting not found")
     return dict(row)
+
+@app.post("/api/meetings/{meeting_id}/shareable")
+def toggle_meeting_shareable(meeting_id: int, data: dict):
+    conn = get_db()
+    conn.execute("UPDATE meetings SET shareable=? WHERE id=?",
+                 (1 if data.get("shareable") else 0, meeting_id))
+    conn.commit(); conn.close()
+    return {"ok": True}
 
 
 # ── REMINDERS ─────────────────────────────────────────────────────────────

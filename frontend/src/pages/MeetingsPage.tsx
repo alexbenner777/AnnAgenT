@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Plus, Mic, ChevronDown, ChevronUp, AlertTriangle, FileText, Users, Bookmark } from 'lucide-react'
+import { Plus, Mic, ChevronDown, ChevronUp, AlertTriangle, FileText, Users, Bookmark, Eye } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import GlassCard from '../components/GlassCard'
 import PageHeader from '../components/PageHeader'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { meetingsApi } from '../api'
+import { useUser } from '../App'
 
 function haptic(s: 'light' | 'medium' = 'light') {
   window.Telegram?.WebApp?.HapticFeedback?.impactOccurred(s)
@@ -23,7 +24,6 @@ function showWip() {
   if (window.Telegram?.WebApp?.showAlert) {
     window.Telegram.WebApp.showAlert('⏳ В разработке')
   } else {
-    // fallback для браузера
     const el = document.createElement('div')
     el.textContent = '⏳ В разработке'
     el.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1c1c1e;color:#fff;padding:10px 20px;border-radius:12px;font-size:14px;z-index:9999;pointer-events:none;opacity:1;transition:opacity 0.4s'
@@ -33,25 +33,35 @@ function showWip() {
 }
 
 export default function MeetingsPage() {
-  const [meetings, setMeetings] = useState<any[]>([])
+  const { role } = useUser()
+  const isAnya = role === 'anya'
+
+  const [allMeetings, setAllMeetings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<number | null>(null)
   const [showAdd, setShowAdd] = useState(false)
-  const [newMeeting, setNewMeeting] = useState({ title: '', participants: '', summary: '', format: 'protocol', risk_flag: '' })
+  const [newMeeting, setNewMeeting] = useState({
+    title: '', participants: '', summary: '', format: 'protocol', risk_flag: '', shareable: false
+  })
 
   useEffect(() => {
     meetingsApi.getAll()
-      .then(setMeetings)
+      .then(setAllMeetings)
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
+  // Ден видит только shareable=1 и без high-risk
+  const meetings = isAnya
+    ? allMeetings
+    : allMeetings.filter(m => m.shareable === 1 && m.risk_flag !== 'high')
+
   const handleAdd = async () => {
-    await meetingsApi.add(newMeeting)
+    await meetingsApi.add({ ...newMeeting, shareable: newMeeting.shareable ? 1 : 0 })
     const updated = await meetingsApi.getAll()
-    setMeetings(updated)
+    setAllMeetings(updated)
     setShowAdd(false)
-    setNewMeeting({ title: '', participants: '', summary: '', format: 'protocol', risk_flag: '' })
+    setNewMeeting({ title: '', participants: '', summary: '', format: 'protocol', risk_flag: '', shareable: false })
     window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success')
   }
 
@@ -62,15 +72,26 @@ export default function MeetingsPage() {
       <div className="px-4 pt-6 pb-4 space-y-4">
         <PageHeader
           title="Встречи"
-          subtitle="Разборы · Протоколы · Задачи"
-          action={
+          subtitle={isAnya ? 'Разборы · Протоколы · Задачи' : 'Ключевые встречи'}
+          action={isAnya ? (
             <button onClick={() => { haptic(); setShowAdd(true) }} className="accent-button w-9 h-9 flex items-center justify-center">
               <Plus size={18} />
             </button>
-          }
+          ) : undefined}
         />
 
-        {showAdd && (
+        {/* Подсказка для Дена */}
+        {!isAnya && (
+          <GlassCard delay={0.03} className="px-4 py-3">
+            <div className="flex items-center gap-2">
+              <Eye size={14} className="text-blue-400 flex-shrink-0" />
+              <p className="text-xs text-gray-500">Показаны только встречи, отмеченные «Показать Дену»</p>
+            </div>
+          </GlassCard>
+        )}
+
+        {/* Форма добавления — только Аня */}
+        {isAnya && showAdd && (
           <GlassCard className="p-4 space-y-3">
             <p className="font-semibold text-gray-800 text-sm">Новая встреча</p>
             <input
@@ -109,6 +130,34 @@ export default function MeetingsPage() {
               <option value="medium">🟡 Средний риск</option>
               <option value="high">🔴 Высокий риск</option>
             </select>
+
+            {/* Переключатель «Показать Дену» */}
+            <button
+              type="button"
+              onClick={() => setNewMeeting(p => ({...p, shareable: !p.shareable}))}
+              className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all ${
+                newMeeting.shareable
+                  ? 'bg-blue-50 border-blue-200'
+                  : 'bg-gray-50 border-transparent'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Eye size={15} className={newMeeting.shareable ? 'text-blue-500' : 'text-gray-400'} />
+                <span className={`text-sm font-medium ${newMeeting.shareable ? 'text-blue-600' : 'text-gray-600'}`}>
+                  Показать Дену
+                </span>
+              </div>
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors ${
+                newMeeting.shareable ? 'bg-blue-500' : 'bg-gray-200'
+              }`}>
+                {newMeeting.shareable && (
+                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                    <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </div>
+            </button>
+
             <div className="flex gap-2">
               <button onClick={() => setShowAdd(false)} className="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-medium">Отмена</button>
               <button onClick={handleAdd} className="flex-1 py-2.5 rounded-xl accent-button text-sm">Сохранить</button>
@@ -119,8 +168,12 @@ export default function MeetingsPage() {
         {meetings.length === 0 && (
           <GlassCard className="p-8 text-center">
             <Mic size={32} className="mx-auto text-gray-200 mb-3" />
-            <p className="text-gray-400 text-sm">Нет разобранных встреч</p>
-            <p className="text-xs text-gray-300 mt-1">Загрузите запись или добавьте вручную</p>
+            <p className="text-gray-400 text-sm">
+              {isAnya ? 'Нет разобранных встреч' : 'Нет доступных встреч'}
+            </p>
+            <p className="text-xs text-gray-300 mt-1">
+              {isAnya ? 'Загрузите запись или добавьте вручную' : 'Аня поделится ключевыми встречами'}
+            </p>
           </GlassCard>
         )}
 
@@ -147,7 +200,14 @@ export default function MeetingsPage() {
                       <Mic size={16} className={m.risk_flag === 'high' ? 'text-red-400' : 'text-blue-400'} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-800 text-sm truncate">{m.title || 'Без названия'}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-gray-800 text-sm truncate">{m.title || 'Без названия'}</p>
+                        {isAnya && m.shareable === 1 && (
+                          <span className="flex items-center gap-1 badge bg-blue-50 text-blue-500 text-[10px]">
+                            <Eye size={9} /> Ден
+                          </span>
+                        )}
+                      </div>
                       <div className="flex flex-wrap gap-2 mt-1">
                         {m.participants && (
                           <span className="flex items-center gap-1 text-xs text-gray-500">
@@ -179,7 +239,6 @@ export default function MeetingsPage() {
                         </div>
                       )}
 
-                      {/* Format buttons */}
                       <div>
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Форматы</p>
                         <div className="flex flex-wrap gap-1.5">
@@ -193,21 +252,17 @@ export default function MeetingsPage() {
                         </div>
                       </div>
 
-                      {/* Action buttons */}
                       <div className="flex gap-2 flex-wrap">
-                        <button
-                          onClick={() => { haptic(); showWip() }}
+                        <button onClick={() => { haptic(); showWip() }}
                           className="glass-button px-3 py-2 text-xs flex items-center gap-1.5">
                           <Bookmark size={11} /> Дела → напоминания
                         </button>
-                        <button
-                          onClick={() => { haptic(); showWip() }}
+                        <button onClick={() => { haptic(); showWip() }}
                           className="glass-button px-3 py-2 text-xs flex items-center gap-1.5">
                           <FileText size={11} /> Транскрипт
                         </button>
                       </div>
 
-                      {/* Risk analysis */}
                       {m.risk_flag && (
                         <div className={`p-3 rounded-2xl border ${m.risk_flag === 'high' ? 'bg-red-50/80 border-red-100' : m.risk_flag === 'medium' ? 'bg-yellow-50/80 border-yellow-100' : 'bg-green-50/80 border-green-100'}`}>
                           <p className="text-xs font-semibold mb-1" style={{ color: riskColor || '#22c55e' }}>
@@ -219,6 +274,36 @@ export default function MeetingsPage() {
                              'Встреча прошла конструктивно. Рисков не обнаружено.'}
                           </p>
                         </div>
+                      )}
+
+                      {/* Аня может переключить shareable прямо из карточки */}
+                      {isAnya && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            haptic()
+                            const updated = allMeetings.map(x =>
+                              x.id === m.id ? { ...x, shareable: x.shareable ? 0 : 1 } : x
+                            )
+                            setAllMeetings(updated)
+                            await fetch(`/api/meetings/${m.id}/shareable`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ shareable: m.shareable ? 0 : 1 })
+                            }).catch(() => {})
+                          }}
+                          className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all ${
+                            m.shareable ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-transparent'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Eye size={14} className={m.shareable ? 'text-blue-500' : 'text-gray-400'} />
+                            <span className={`text-xs font-medium ${m.shareable ? 'text-blue-600' : 'text-gray-500'}`}>
+                              {m.shareable ? 'Показано Дену' : 'Показать Дену'}
+                            </span>
+                          </div>
+                          <div className={`w-4 h-4 rounded-full ${m.shareable ? 'bg-blue-500' : 'bg-gray-200'}`} />
+                        </button>
                       )}
                     </div>
                   </motion.div>

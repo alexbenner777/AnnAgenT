@@ -194,7 +194,7 @@ function AnyaHome({ data, history }: { data: any; history: any[] }) {
         <div className="flex justify-around">
           <RadialRing value={readiness} max={100} color="#5B9DB8" label="Готовность" sublabel="%" size={84} stroke={8} />
           <RadialRing value={energy} max={10} color="#34d399" label="Энергия" sublabel="/10" size={84} stroke={8} />
-          <RadialRing value={sleep} max={10} color="#a78bfa" label="Сон" sublabel="/10" size={84} stroke={8}>
+          <RadialRing value={sleep} max={100} color="#a78bfa" label="Сон" sublabel="%" size={84} stroke={8}>
             {sleep != null ? (
               <>
                 <Moon size={13} color="#a78bfa" />
@@ -347,7 +347,10 @@ function DenHome({ data, history }: { data: any; history: any[] }) {
       {/* Витальные кольца */}
       <GlassCard delay={0.05} className="p-4" onClick={() => navigate('/state')}>
         <div className="flex items-center justify-between mb-3">
-          <span className="font-semibold text-gray-800 text-sm">Состояние сегодня</span>
+          <div>
+            <span className="font-semibold text-gray-800 text-sm">Моё состояние</span>
+            <p className="text-[10px] text-gray-400 mt-0.5">ведёт Аня</p>
+          </div>
           <ChevronRight size={14} className="text-gray-300" />
         </div>
         <div className="flex justify-around">

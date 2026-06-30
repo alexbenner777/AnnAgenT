@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Plus, Gift, Phone, ChevronRight, Search, Users } from 'lucide-react'
+import { Plus, Gift, ChevronRight, Search, Users } from 'lucide-react'
 import GlassCard from '../components/GlassCard'
 import PageHeader from '../components/PageHeader'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { contactsApi } from '../api'
+import { useUser } from '../App'
 
 const CIRCLES = [
   { key: 'all', label: 'Все' },
@@ -24,6 +25,8 @@ function haptic(s: 'light' | 'medium' = 'light') {
 const ADD_STEPS = ['name', 'relation', 'circle', 'birthday', 'interests', 'city', 'done'] as const
 
 export default function ContactsPage() {
+  const { role } = useUser()
+  const isAnya = role === 'anya'
   const [contacts, setContacts] = useState<any[]>([])
   const [birthdays, setBirthdays] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -94,11 +97,11 @@ export default function ContactsPage() {
         <PageHeader
           title="Контакты"
           subtitle="Сеть · Дни рождения · Подарки"
-          action={
+          action={isAnya ? (
             <button onClick={() => { haptic(); setShowAdd(true) }} className="accent-button w-9 h-9 flex items-center justify-center">
               <Plus size={18} />
             </button>
-          }
+          ) : undefined}
         />
 
         {/* Upcoming birthdays */}
