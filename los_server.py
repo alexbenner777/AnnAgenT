@@ -651,20 +651,32 @@ class LOSHandler(http.server.BaseHTTPRequestHandler):
         path = parsed.path
         query = urllib.parse.parse_qs(parsed.query)
 
-        # ── API routes ─────────────────────────────────────────────
+        # ── API routes — proxy to FastAPI on port 8001 ─────────────
         if path.startswith("/api/"):
-            api_path = path[4:]  # strip /api
-            body = None
-            if method == "POST":
-                length = int(self.headers.get("Content-Length", 0))
-                if length:
-                    try: body = json.loads(self.rfile.read(length))
-                    except: body = {}
+            import http.client as _hc
             try:
-                status, data = handle_api(method, api_path, query, body)
-                self._json(status, data)
+                body_bytes = b""
+                if method in ("POST", "PUT", "PATCH"):
+                    length = int(self.headers.get("Content-Length", 0))
+                    if length:
+                        body_bytes = self.rfile.read(length)
+                conn2 = _hc.HTTPConnection("127.0.0.1", 8001, timeout=10)
+                qs = parsed.query
+                target = path + ("?" + qs if qs else "")
+                headers2 = {"Content-Type": self.headers.get("Content-Type", "application/json"),
+                            "Content-Length": str(len(body_bytes))}
+                conn2.request(method, target, body=body_bytes, headers=headers2)
+                resp = conn2.getresponse()
+                raw = resp.read()
+                self.send_response(resp.status)
+                self.send_header("Content-Type", resp.getheader("Content-Type", "application/json"))
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+                conn2.close()
             except Exception as e:
-                self._json(500, {"error": str(e)})
+                self._json(502, {"error": "API proxy error", "detail": str(e)})
             return
 
         # ── Static files ───────────────────────────────────────────

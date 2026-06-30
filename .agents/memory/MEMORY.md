@@ -1,2 +1,4 @@
 - [Replit workflow limitations](workflow-limits.md) — restart_workflow and installLanguagePackages always fail; configureWorkflow writes .replit but can't auto-start; use start script + Run button instead.
-- [LOS Mini App architecture](los-miniapp-arch.md) — FastAPI on 8001 (miniapp_api.py auto-installs deps), Vite on 5000, both started via start_miniapp.sh; Anya sees Health, Den does not.
+- [LOS Mini App architecture](los-miniapp-arch.md) — FastAPI on 8001 (miniapp_api.py), static server + API proxy on 5000 (los_server.py), both started via start_miniapp.sh; frontend built to public/ on each start.
+- [LOS DB schema fix](los-db-schema.md) — los_server.py and miniapp_api.py share los_miniapp.db; los_server.py must define ALL tables/columns miniapp_api.py needs or seeding fails; settings table uses key/value not named columns; proxy all /api/ in los_server.py to port 8001.
+- [LOS .replit schema fix](los-replit-schema.md) — invalid [agent] section and deploymentTarget=background block all tooling (DOT_REPLIT_SYNTAX_ERROR); fix by removing via symlink write to /tmp then os.replace; configureWorkflow with autoStart=false also helps.
