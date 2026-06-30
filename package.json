@@ -1,0 +1,31 @@
+{
+  "name": "workspace",
+  "version": "1.0.0",
+  "description": "Персональный мультиагентный ассистент в Telegram. Единый интерфейс — чат (Аня), язык — русский. Реализована **Фаза 1** ТЗ v2.0 + новый агент напоминаний о препаратах.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@twa-dev/sdk": "^8.0.2",
+    "@vitejs/plugin-react": "^6.0.3",
+    "autoprefixer": "^10.5.2",
+    "axios": "^1.18.1",
+    "framer-motion": "^12.42.0",
+    "lucide-react": "^1.22.0",
+    "postcss": "^8.5.16",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.1",
+    "recharts": "^3.9.0",
+    "tailwindcss": "^4.3.2",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.0"
+  }
+}

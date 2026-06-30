@@ -1,20 +1,15 @@
 run = "python main.py"
 entrypoint = "main.py"
-modules = ["python-3.11", "nodejs-20"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["libxcrypt"]
 
 [deployment]
 run = ["python", "main.py"]
+deploymentTarget = "background"
 
 [[ports]]
 localPort = 8080
-externalPort = 80
-
-[[ports]]
-localPort = 5000
 externalPort = 80
 
 [workflows]
@@ -40,8 +35,4 @@ waitForPort = 5000
 
 [workflows.workflow.metadata]
 outputType = "webview"
-
-[agent]
-expertMode = true
-
 
