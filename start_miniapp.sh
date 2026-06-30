@@ -14,26 +14,10 @@ if [ ! -d "frontend/node_modules" ]; then
   cd frontend && npm install --silent && cd ..
 fi
 
-# ── 3. Build frontend (only if source changed or dist missing) ───────
-DIST="frontend/dist/index.html"
-SRC_CHANGED=false
-if [ ! -f "$DIST" ]; then
-  SRC_CHANGED=true
-elif [ "$(find frontend/src -newer "$DIST" 2>/dev/null | head -1)" != "" ]; then
-  SRC_CHANGED=true
-fi
-
-if $SRC_CHANGED; then
-  echo "Building frontend..."
-  cd frontend && npm run build 2>&1 | tail -3 && cd ..
-fi
-
-echo "Copying frontend build to public/..."
-cp -r frontend/dist/* public/
-
-# ── 4. Start servers ─────────────────────────────────────────────────
+# ── 3. Start FastAPI backend ─────────────────────────────────────────
 echo "Starting FastAPI backend on port 8001..."
 python miniapp_api.py &
 
-echo "Starting frontend server on port 5000..."
-exec python los_server.py
+# ── 4. Start Vite dev server on port 5000 ────────────────────────────
+echo "Starting frontend dev server on port 5000..."
+cd frontend && exec npm run dev
