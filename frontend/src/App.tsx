@@ -15,6 +15,8 @@ import MeetingsPage from './pages/MeetingsPage'
 import TasksPage from './pages/TasksPage'
 import RemindersPage from './pages/RemindersPage'
 import SettingsPage from './pages/SettingsPage'
+import DenDealsPage from './pages/DenDealsPage'
+import AskPage from './pages/AskPage'
 
 // Layout
 import Layout from './components/Layout'
@@ -58,9 +60,17 @@ export default function App() {
             <Route path="/contacts" element={<ContactsPage />} />
             <Route path="/day-quality" element={<DayQualityPage />} />
             <Route path="/meetings" element={<MeetingsPage />} />
-            <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/tasks" element={
+              role === 'anya' ? <TasksPage /> : <Navigate to="/" replace />
+            } />
             <Route path="/reminders" element={<RemindersPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/den-deals" element={
+              role === 'den' ? <DenDealsPage /> : <Navigate to="/" replace />
+            } />
+            <Route path="/ask" element={
+              role === 'den' ? <AskPage /> : <Navigate to="/" replace />
+            } />
           </Route>
         </Routes>
       </BrowserRouter>

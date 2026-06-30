@@ -1,17 +1,41 @@
 import { useEffect, useState } from 'react'
-import { Calendar, Plus, MapPin, Clock } from 'lucide-react'
+import { Calendar, Clock, MapPin } from 'lucide-react'
 import GlassCard from '../components/GlassCard'
 import PageHeader from '../components/PageHeader'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { calendarApi } from '../api'
+import { useUser } from '../App'
 
 const LOAD_COLORS: Record<string, { bg: string; text: string; label: string; dot: string }> = {
-  high: { bg: 'bg-red-50', text: 'text-red-500', label: '🔴 Высокая', dot: '#ef4444' },
-  medium: { bg: 'bg-yellow-50', text: 'text-yellow-600', label: '🟡 Средняя', dot: '#eab308' },
-  low: { bg: 'bg-green-50', text: 'text-green-600', label: '🟢 Низкая', dot: '#22c55e' },
-  personal: { bg: 'bg-purple-50', text: 'text-purple-500', label: '⚪ Личное', dot: '#a855f7' },
-  family: { bg: 'bg-pink-50', text: 'text-pink-500', label: '⚪ Семья', dot: '#ec4899' },
-  health: { bg: 'bg-blue-50', text: 'text-blue-500', label: '💊 Здоровье', dot: '#3b82f6' },
+  high:     { bg: 'bg-red-50',    text: 'text-red-500',    label: '🔴 Высокая', dot: '#ef4444' },
+  medium:   { bg: 'bg-yellow-50', text: 'text-yellow-600', label: '🟡 Средняя', dot: '#eab308' },
+  low:      { bg: 'bg-green-50',  text: 'text-green-600',  label: '🟢 Низкая',  dot: '#22c55e' },
+  personal: { bg: 'bg-purple-50', text: 'text-purple-500', label: '⚪ Личное',  dot: '#a855f7' },
+  family:   { bg: 'bg-pink-50',   text: 'text-pink-500',   label: '⚪ Семья',   dot: '#ec4899' },
+  health:   { bg: 'bg-blue-50',   text: 'text-blue-500',   label: '💊 Здоровье',dot: '#3b82f6' },
+}
+
+// Категории событий, которые относятся к медицине
+const HEALTH_TYPES = new Set(['health', 'medical', 'doctor', 'clinic'])
+
+function isMedicalEvent(ev: any): boolean {
+  return (
+    HEALTH_TYPES.has(ev.meeting_type) ||
+    HEALTH_TYPES.has(ev.cognitive_load) ||
+    HEALTH_TYPES.has(ev.category)
+  )
+}
+
+function maskForDen(ev: any): any {
+  if (!isMedicalEvent(ev)) return ev
+  return {
+    ...ev,
+    title: 'Личное / Занят',
+    description: undefined,
+    location: undefined,
+    meeting_type: 'personal',
+    cognitive_load: 'personal',
+  }
 }
 
 function groupByDate(events: any[]) {
@@ -42,16 +66,21 @@ function getTotalLoad(events: any[]) {
 }
 
 export default function CalendarPage() {
+  const { role } = useUser()
   const [events, setEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [days, setDays] = useState(7)
 
   useEffect(() => {
     calendarApi.getEvents(days)
-      .then(setEvents)
+      .then(raw => {
+        // Маскируем медицинские события для Дена
+        const processed = role === 'den' ? raw.map(maskForDen) : raw
+        setEvents(processed)
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [days])
+  }, [days, role])
 
   const grouped = groupByDate(events)
   const sortedDates = Object.keys(grouped).sort()
@@ -65,7 +94,7 @@ export default function CalendarPage() {
         <div className="glass-card-sm p-1 flex gap-1">
           {[
             { label: 'Сегодня', val: 1 },
-            { label: '7 дней', val: 7 },
+            { label: '7 дней',  val: 7 },
             { label: '14 дней', val: 14 },
           ].map(opt => (
             <button
@@ -98,8 +127,8 @@ export default function CalendarPage() {
                 <p className="text-sm font-semibold text-gray-700 capitalize">{formatDateLabel(dateStr)}</p>
                 <span className={`badge text-[10px] ${
                   loadStatus === 'Перегрузка' ? 'bg-red-50 text-red-500' :
-                  loadStatus === 'Насыщенно' ? 'bg-yellow-50 text-yellow-600' :
-                  'bg-green-50 text-green-600'
+                  loadStatus === 'Насыщенно'  ? 'bg-yellow-50 text-yellow-600' :
+                                                 'bg-green-50 text-green-600'
                 }`}>
                   {loadStatus}
                 </span>

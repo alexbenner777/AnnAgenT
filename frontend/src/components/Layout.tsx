@@ -3,7 +3,8 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Home, Heart, Calendar, Wallet, MoreHorizontal,
-  Activity, BookOpen, Users, Star, Mic, CheckSquare, Bell, Settings, X
+  Activity, BookOpen, Users, Star, Mic, CheckSquare, Bell, Settings, X,
+  LayoutGrid, MessageCircle
 } from 'lucide-react'
 import { useUser } from '../App'
 
@@ -24,45 +25,33 @@ export default function Layout() {
   }
 
   // Аня: Главная | Здоровье | Сводка | Календарь | Ещё
-  // Ден: Главная | Сводка | Состояние | Календарь | Ещё
+  // Ден: Сегодня | Состояние | Дела | Спросить  (без Ещё, без Здоровья)
   const TAB_ITEMS = role === 'anya'
     ? [
-        { path: '/',         icon: Home,          label: 'Главная'  },
-        { path: '/health',   icon: Heart,         label: 'Здоровье' },
-        { path: '/briefing', icon: BookOpen,      label: 'Сводка'   },
-        { path: '/calendar', icon: Calendar,      label: 'Календарь'},
-        { path: '/more',     icon: MoreHorizontal,label: 'Ещё'      },
+        { path: '/',          icon: Home,           label: 'Главная'   },
+        { path: '/health',    icon: Heart,          label: 'Здоровье'  },
+        { path: '/briefing',  icon: BookOpen,       label: 'Сводка'    },
+        { path: '/calendar',  icon: Calendar,       label: 'Календарь' },
+        { path: '/more',      icon: MoreHorizontal, label: 'Ещё'       },
       ]
     : [
-        { path: '/',         icon: Home,          label: 'Главная'  },
-        { path: '/briefing', icon: BookOpen,      label: 'Сводка'   },
-        { path: '/state',    icon: Activity,      label: 'Состояние'},
-        { path: '/calendar', icon: Calendar,      label: 'Календарь'},
-        { path: '/more',     icon: MoreHorizontal,label: 'Ещё'      },
+        { path: '/',           icon: Home,           label: 'Сегодня'   },
+        { path: '/state',      icon: Activity,       label: 'Состояние' },
+        { path: '/den-deals',  icon: LayoutGrid,     label: 'Дела'      },
+        { path: '/ask',        icon: MessageCircle,  label: 'Спросить'  },
       ]
 
-  // Аня: Состояние первым (ежедневный ввод), потом всё остальное
-  // Ден: без здоровья, Финансы первыми
-  const MORE_ITEMS = role === 'anya'
-    ? [
-        { path: '/state',       icon: Activity,    label: 'Состояние',    emoji: '🧠' },
-        { path: '/finances',    icon: Wallet,      label: 'Финансы',      emoji: '💰' },
-        { path: '/contacts',    icon: Users,       label: 'Контакты',     emoji: '👥' },
-        { path: '/day-quality', icon: Star,        label: 'Качество дня', emoji: '✨' },
-        { path: '/meetings',    icon: Mic,         label: 'Встречи',      emoji: '🎙' },
-        { path: '/tasks',       icon: CheckSquare, label: 'Задачи',       emoji: '⚡' },
-        { path: '/reminders',   icon: Bell,        label: 'Напоминания',  emoji: '🔔' },
-        { path: '/settings',    icon: Settings,    label: 'Настройки',    emoji: '⚙️' },
-      ]
-    : [
-        { path: '/finances',    icon: Wallet,      label: 'Финансы',      emoji: '💰' },
-        { path: '/contacts',    icon: Users,       label: 'Контакты',     emoji: '👥' },
-        { path: '/day-quality', icon: Star,        label: 'Качество дня', emoji: '✨' },
-        { path: '/meetings',    icon: Mic,         label: 'Встречи',      emoji: '🎙' },
-        { path: '/tasks',       icon: CheckSquare, label: 'Задачи',       emoji: '⚡' },
-        { path: '/reminders',   icon: Bell,        label: 'Напоминания',  emoji: '🔔' },
-        { path: '/settings',    icon: Settings,    label: 'Настройки',    emoji: '⚙️' },
-      ]
+  // Ещё — только для Ани
+  const MORE_ITEMS = [
+    { path: '/state',       icon: Activity,    label: 'Состояние',    emoji: '🧠' },
+    { path: '/finances',    icon: Wallet,      label: 'Финансы',      emoji: '💰' },
+    { path: '/contacts',    icon: Users,       label: 'Контакты',     emoji: '👥' },
+    { path: '/day-quality', icon: Star,        label: 'Качество дня', emoji: '✨' },
+    { path: '/meetings',    icon: Mic,         label: 'Встречи',      emoji: '🎙' },
+    { path: '/tasks',       icon: CheckSquare, label: 'Задачи',       emoji: '⚡' },
+    { path: '/reminders',   icon: Bell,        label: 'Напоминания',  emoji: '🔔' },
+    { path: '/settings',    icon: Settings,    label: 'Настройки',    emoji: '⚙️' },
+  ]
 
   const handleTabClick = (path: string) => {
     haptic('light')
