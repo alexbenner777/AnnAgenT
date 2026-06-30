@@ -248,32 +248,41 @@ def _seed_demo_data(conn):
             (d, 70+i*2, 45+i*3, 72+i, 7.2+i*0.1, 62-i, 7+i%3-1,
              1 if i%2==0 else 0, 1 if i%3==0 else 0, 1 if i==1 else 0))
 
+    # ── 4 конкретных препарата без повторов ──────────────────────────────
     meds = [
-        ("Магний B6", "2 таб.", '["09:00","21:00"]', None, "with", 0, 60, 1, None),
-        ("Омега-3", "1 капс.", '["08:00"]', None, "with", 0, 90, 1, None),
         ("Витамин D3", "1 капс.", '["09:00"]', None, "with", 0, 120, 1, None),
-        ("Коэнзим Q10", "1 капс.", '["12:00"]', None, "any", 0, 45, 1, None),
+        ("Омега-3",    "1 капс.", '["08:00"]', None, "with", 0,  90, 1, None),
+        ("Магний",     "2 таб.", '["21:00"]', None, "with", 0,  60, 1, None),
+        ("Железо",     "1 таб.", '["09:00"]', None, "with", 1,  45, 1, None),
     ]
     for m in meds:
         cur.execute("""INSERT OR IGNORE INTO medications
             (name, dosage, schedule_times, days_of_week, with_food, is_critical, supply_units, is_active, end_date)
             VALUES (?,?,?,?,?,?,?,?,?)""", m)
 
-    med_ids = [row[0] for row in cur.execute("SELECT id FROM medications").fetchall()]
-    for mid in med_ids:
-        for h in ["09:00", "21:00"]:
+    # ── Лог приёма: большинство taken, Магний (вечер) pending ───────────
+    intake_log = [
+        ("Витамин D3", "09:00", "taken"),
+        ("Омега-3",    "08:00", "taken"),
+        ("Магний",     "21:00", "pending"),
+        ("Железо",     "09:00", "taken"),
+    ]
+    for med_name, t, status in intake_log:
+        mid = cur.execute("SELECT id FROM medications WHERE name=?", (med_name,)).fetchone()
+        if mid:
             cur.execute("""INSERT OR IGNORE INTO medication_intake_log
                 (medication_id, scheduled_at, status)
                 VALUES (?,?,?)""",
-                (mid, f"{today.isoformat()} {h}:00", "pending"))
+                (mid[0], f"{today.isoformat()} {t}:00", status))
 
+    # ── Календарь: уникальные события, без дублей ────────────────────────
     events = [
-        (today.isoformat(), "Созвон с командой", "10:00", "11:00", "work", "medium", "Zoom", "Еженедельный синк"),
-        (today.isoformat(), "Обед с партнёрами", "13:00", "14:30", "work", "low", "Ресторан Пушкин", ""),
-        (today.isoformat(), "Стратегическая сессия", "16:00", "18:00", "work", "high", "Офис", "Квартальное планирование"),
+        (today.isoformat(), "Созвон с командой",       "10:00", "11:00", "work",     "medium", "Zoom",           "Еженедельный синк"),
+        (today.isoformat(), "Обед с партнёрами",        "13:00", "14:30", "work",     "low",    "Ресторан Пушкин",""),
+        (today.isoformat(), "Стратегическая сессия",    "16:00", "18:00", "work",     "high",   "Офис",           "Квартальное планирование"),
         ((today + timedelta(days=1)).isoformat(), "Встреча с инвестором", "11:00", "12:00", "work", "high", "Офис", ""),
-        ((today + timedelta(days=2)).isoformat(), "Йога", "08:00", "09:00", "personal", "low", "Студия", ""),
-        ((today + timedelta(days=3)).isoformat(), "Дантист", "15:00", "16:00", "health", "medium", "Клиника", "Плановый осмотр"),
+        ((today + timedelta(days=2)).isoformat(), "Йога",     "08:00", "09:00", "personal", "low",  "Студия",  ""),
+        ((today + timedelta(days=3)).isoformat(), "Дантист",  "15:00", "16:00", "health",   "medium","Клиника","Плановый осмотр"),
     ]
     for e in events:
         cur.execute("""INSERT OR IGNORE INTO calendar_events
@@ -281,14 +290,14 @@ def _seed_demo_data(conn):
             VALUES (?,?,?,?,?,?,?,?)""", e)
 
     expenses_data = [
-        (5000, "Еда", "Садик", (today - timedelta(days=1)).isoformat()),
-        (3200, "Транспорт", "Такси", (today - timedelta(days=2)).isoformat()),
-        (12000, "Рестораны", "Ужин с партнёрами", (today - timedelta(days=3)).isoformat()),
-        (8500, "Здоровье", "Аптека", (today - timedelta(days=4)).isoformat()),
-        (45000, "Образование", "Онлайн-курс", (today - timedelta(days=5)).isoformat()),
-        (2300, "Еда", "Продукты", today.isoformat()),
-        (1500, "Транспорт", "Метро + автобус", today.isoformat()),
-        (15000, "Развлечения", "Театр", (today - timedelta(days=6)).isoformat()),
+        (5000,  "Еда",          "Садик",            (today - timedelta(days=1)).isoformat()),
+        (3200,  "Транспорт",    "Такси",             (today - timedelta(days=2)).isoformat()),
+        (12000, "Рестораны",    "Ужин с партнёрами", (today - timedelta(days=3)).isoformat()),
+        (8500,  "Здоровье",     "Аптека",            (today - timedelta(days=4)).isoformat()),
+        (45000, "Образование",  "Онлайн-курс",       (today - timedelta(days=5)).isoformat()),
+        (2300,  "Еда",          "Продукты",          today.isoformat()),
+        (1500,  "Транспорт",    "Метро + автобус",   today.isoformat()),
+        (15000, "Развлечения",  "Театр",             (today - timedelta(days=6)).isoformat()),
     ]
     for exp in expenses_data:
         cur.execute("INSERT OR IGNORE INTO expenses (amount, category, description, expense_date) VALUES (?,?,?,?)", exp)
@@ -296,6 +305,7 @@ def _seed_demo_data(conn):
     cur.execute("INSERT OR IGNORE INTO income (amount, source, income_date) VALUES (?,?,?)",
                 (500000, "Основной доход", (today.replace(day=1)).isoformat()))
 
+    # ── Бюджет: по одной строке на категорию ────────────────────────────
     limits = [
         ("Еда", 80000), ("Транспорт", 30000), ("Рестораны", 50000),
         ("Здоровье", 40000), ("Развлечения", 30000), ("Образование", 60000),
@@ -303,12 +313,21 @@ def _seed_demo_data(conn):
     for lim in limits:
         cur.execute("INSERT OR IGNORE INTO budget_limits (category, monthly_limit) VALUES (?,?)", lim)
 
+    # ── 12 контактов, у всех bday_md, 2 ДР в ближайшие 7 дней ──────────
+    # today = June 30 → ДР 02.07 (2 дня) и 05.07 (5 дней)
     contacts_data = [
-        ("Мария Иванова", "партнёр", "core", "1985-03-15", "03-15", "кино, йога, путешествия", "ru", "Близкий человек", "Москва", "Дизайнер", "2024-06-25", 7),
-        ("Алексей Смирнов", "друг", "close", "1983-07-22", "07-22", "спорт, технологии, горы", "ru", "Давний друг", "Москва", "Предприниматель", "2024-06-20", 14),
-        ("Елена Козлова", "клиент", "work", "1990-09-10", "09-10", "бизнес, искусство", "ru", "Ключевой клиент", "СПб", "CEO", "2024-06-15", 30),
-        ("Дмитрий Петров", "инвестор", "work", "1978-12-05", "12-05", "финансы, теннис", "ru", "Потенциальный инвестор", "Москва", "Венчурный инвестор", "2024-06-10", 21),
-        ("Анна Сидорова", "семья", "core", "1988-06-30", "06-30", "семья, книги, готовка", "ru", "Сестра", "Москва", "", "2024-06-28", 3),
+        ("Мария Иванова",    "партнёр",   "core",  "1985-03-15", "03-15", "кино, йога, путешествия",     "ru", "Близкий человек",       "Москва", "Дизайнер",             "2024-06-25", 7),
+        ("Алексей Смирнов",  "друг",      "close", "1983-07-22", "07-22", "спорт, технологии, горы",     "ru", "Давний друг",           "Москва", "Предприниматель",      "2024-06-20", 14),
+        ("Елена Козлова",    "клиент",    "work",  "1990-09-10", "09-10", "бизнес, искусство",            "ru", "Ключевой клиент",       "СПб",    "CEO",                  "2024-06-15", 30),
+        ("Дмитрий Петров",   "инвестор",  "work",  "1978-12-05", "12-05", "финансы, теннис",              "ru", "Потенциальный инвестор","Москва", "Венчурный инвестор",   "2024-06-10", 21),
+        ("Анна Сидорова",    "семья",     "core",  "1988-06-30", "06-30", "семья, книги, готовка",        "ru", "Сестра",                "Москва", "",                     "2024-06-28", 3),
+        ("Игорь Волков",     "партнёр",   "close", "1981-07-02", "07-02", "стратегия, гольф, вино",       "ru", "Бизнес-партнёр",        "Москва", "Управляющий партнёр",  "2024-06-18", 10),
+        ("Наталья Фролова",  "клиент",    "work",  "1992-07-05", "07-05", "маркетинг, путешествия",       "ru", "Крупный клиент",        "Москва", "CMO",                  "2024-06-12", 30),
+        ("Сергей Новиков",   "друг",      "close", "1984-02-14", "02-14", "футбол, кино, IT",             "ru", "Друг детства",          "Москва", "CTO",                  "2024-05-20", 30),
+        ("Кристина Орлова",  "команда",   "work",  "1995-11-20", "11-20", "дизайн, психология",           "ru", "Руководитель проектов", "Москва", "PM",                   "2024-06-27", 7),
+        ("Павел Захаров",    "инвестор",  "work",  "1976-04-08", "04-08", "недвижимость, экономика",      "ru", "Инвестор фонда",        "Москва", "Управляющий фондом",   "2024-06-01", 21),
+        ("Виктория Лебедева","команда",   "work",  "1993-08-15", "08-15", "аналитика, йога",              "ru", "Финансовый аналитик",   "Москва", "Аналитик",             "2024-06-22", 14),
+        ("Тимур Ахметов",    "партнёр",   "close", "1980-01-30", "01-30", "бизнес, горы, история",        "ru", "Со-основатель",         "Алматы", "CEO",                  "2024-06-05", 21),
     ]
     for c in contacts_data:
         cur.execute("""INSERT OR IGNORE INTO contacts
@@ -318,8 +337,8 @@ def _seed_demo_data(conn):
     cur.execute("""INSERT OR IGNORE INTO medical_visits
         (visit_date, doctor, specialty, reason, outcome, followup_date, schedule_pattern, status)
         VALUES (?,?,?,?,?,?,?,?)""",
-        ((today + timedelta(days=5)).isoformat(), "Иванов А.В.", "Кардиолог",
-         "Плановый осмотр", None, (today + timedelta(days=90)).isoformat(), None, "planned"))
+        ((today + timedelta(days=1)).isoformat(), "Смирнова Е.Н.", "Остеопатия",
+         "Плановый сеанс", None, (today + timedelta(days=30)).isoformat(), None, "planned"))
     cur.execute("""INSERT OR IGNORE INTO medical_visits
         (visit_date, doctor, specialty, reason, outcome, followup_date, schedule_pattern, status)
         VALUES (?,?,?,?,?,?,?,?)""",
@@ -335,11 +354,11 @@ def _seed_demo_data(conn):
         VALUES (?,?,?,?)""",
         ((today - timedelta(days=30)).isoformat(), "Инвитро", "pdf", "Общий анализ крови + биохимия")).lastrowid
     lab_results_data = [
-        (panel_id, (today - timedelta(days=30)).isoformat(), "Витамин D 25-OH", "vitamin_d", 28.5, "28.5", "нг/мл", 30, 100, "low"),
-        (panel_id, (today - timedelta(days=30)).isoformat(), "Ферритин", "ferritin", 45, "45", "нг/мл", 30, 300, "normal"),
-        (panel_id, (today - timedelta(days=30)).isoformat(), "ТТГ", "tsh", 1.8, "1.8", "мкМЕ/мл", 0.4, 4.0, "normal"),
-        (panel_id, (today - timedelta(days=30)).isoformat(), "Гемоглобин", "hgb", 138, "138", "г/л", 130, 170, "normal"),
-        (panel_id, (today - timedelta(days=30)).isoformat(), "Общий холестерин", "cholesterol", 5.8, "5.8", "ммоль/л", 0, 5.2, "high"),
+        (panel_id, (today - timedelta(days=30)).isoformat(), "Витамин D 25-OH", "vitamin_d",   28.5, "28.5", "нг/мл",    30,  100, "low"),
+        (panel_id, (today - timedelta(days=30)).isoformat(), "Ферритин",         "ferritin",    45,   "45",   "нг/мл",    30,  300, "normal"),
+        (panel_id, (today - timedelta(days=30)).isoformat(), "ТТГ",              "tsh",         1.8,  "1.8",  "мкМЕ/мл",  0.4, 4.0, "normal"),
+        (panel_id, (today - timedelta(days=30)).isoformat(), "Гемоглобин",       "hgb",         138,  "138",  "г/л",      130, 170, "normal"),
+        (panel_id, (today - timedelta(days=30)).isoformat(), "Общий холестерин", "cholesterol", 5.8,  "5.8",  "ммоль/л",  0,   5.2, "high"),
     ]
     for lr in lab_results_data:
         cur.execute("""INSERT OR IGNORE INTO lab_results
@@ -347,47 +366,65 @@ def _seed_demo_data(conn):
             VALUES (?,?,?,?,?,?,?,?,?,?)""", lr)
 
     reminders_data = [
-        ("Выпить воду", None, None, '["08:00","12:00","18:00"]', None),
-        ("Позвонить юристу", "По поводу договора", f"{(today + timedelta(days=1)).isoformat()} 09:00:00", None, None),
-        ("Витамины", None, None, '["09:00"]', None),
+        ("Выпить воду",       None,                  None,                                                    '["08:00","12:00","18:00"]', None),
+        ("Позвонить юристу",  "По поводу договора",  f"{(today + timedelta(days=1)).isoformat()} 09:00:00",   None,                       None),
+        ("Витамины",          None,                  None,                                                    '["09:00"]',                None),
     ]
     for r in reminders_data:
         cur.execute("""INSERT OR IGNORE INTO reminders
             (title, notes, due_at, schedule_times, days_of_week)
             VALUES (?,?,?,?,?)""", r)
 
-    cur.execute("""INSERT OR IGNORE INTO meetings
-        (title, transcript, summary, meeting_date, participants, format, risk_flag)
-        VALUES (?,?,?,?,?,?,?)""",
+    # ── 3 встречи с разными уровнями риска ──────────────────────────────
+    meetings_data = [
         ("Переговоры с партнёром о доле", None,
          "Обсудили распределение доли 60/40. Партнёр настаивает на равном разделе. Договорились вернуться через неделю с юридическим заключением.",
-         (today - timedelta(days=2)).isoformat(), "Ден, Алексей Смирнов", "negotiations", "medium"))
+         (today - timedelta(days=2)).isoformat(), "Ден, Алексей Смирнов", "negotiations", "medium"),
+        ("Стратегическая сессия Q3", None,
+         "Определили 3 ключевых направления на квартал: масштабирование продаж, найм CTO, выход на новый рынок. Распределили ответственность по OKR.",
+         (today - timedelta(days=5)).isoformat(), "Команда (5 чел.)", "protocol", "low"),
+        ("Разбор конфликта с подрядчиком", None,
+         "Подрядчик срывает дедлайны и уклоняется от конкретных ответов. Зафиксированы манипуляции и попытка переложить вину. Рекомендуется юридическое письмо и поиск замены.",
+         (today - timedelta(days=7)).isoformat(), "Ден, Игорь Волков, юрист", "negotiations", "high"),
+    ]
+    for m in meetings_data:
+        cur.execute("""INSERT OR IGNORE INTO meetings
+            (title, transcript, summary, meeting_date, participants, format, risk_flag)
+            VALUES (?,?,?,?,?,?,?)""", m)
 
-    cur.execute("""INSERT OR IGNORE INTO settings (key, value) VALUES (?,?)""",
-                ("natal_date", "1983-07-22"))
-    cur.execute("""INSERT OR IGNORE INTO settings (key, value) VALUES (?,?)""",
-                ("natal_time", "14:30"))
-    cur.execute("""INSERT OR IGNORE INTO settings (key, value) VALUES (?,?)""",
-                ("natal_city", "Москва"))
-    cur.execute("""INSERT OR IGNORE INTO settings (key, value) VALUES (?,?)""",
-                ("briefing_morning_time", "07:00"))
-    cur.execute("""INSERT OR IGNORE INTO settings (key, value) VALUES (?,?)""",
-                ("briefing_evening_time", "22:00"))
-    cur.execute("""INSERT OR IGNORE INTO settings (key, value) VALUES (?,?)""",
-                ("readiness_threshold", "60"))
+    cur.execute("""INSERT OR IGNORE INTO settings (key, value) VALUES (?,?)""", ("natal_date",             "1983-07-22"))
+    cur.execute("""INSERT OR IGNORE INTO settings (key, value) VALUES (?,?)""", ("natal_time",             "14:30"))
+    cur.execute("""INSERT OR IGNORE INTO settings (key, value) VALUES (?,?)""", ("natal_city",             "Москва"))
+    cur.execute("""INSERT OR IGNORE INTO settings (key, value) VALUES (?,?)""", ("briefing_morning_time",  "07:00"))
+    cur.execute("""INSERT OR IGNORE INTO settings (key, value) VALUES (?,?)""", ("briefing_evening_time",  "22:00"))
+    cur.execute("""INSERT OR IGNORE INTO settings (key, value) VALUES (?,?)""", ("readiness_threshold",    "60"))
 
+    # ── Утренняя сводка (все 6 блоков) ──────────────────────────────────
     morning_content = json.dumps({
         "type": "morning",
         "date": today.isoformat(),
         "state": {"energy": 8, "sleep": 7.5, "readiness": 82},
         "day_quality": {"numerology_day": 6, "astro_note": "Меркурий в трине с Юпитером — день для переговоров и контрактов"},
         "schedule": ["10:00 Созвон с командой", "13:00 Обед с партнёрами", "16:00 Стратегическая сессия"],
-        "important_dates": ["Послезавтра — день рождения Анны Сидоровой"],
+        "important_dates": ["Сегодня ДР: Анна Сидорова", "Послезавтра ДР: Игорь Волков"],
         "finances": {"balance_trend": "в норме", "alert": None},
         "priorities": ["Закрыть вопрос с юристом по договору", "Подготовить материалы к стратсессии"]
     })
     cur.execute("""INSERT OR IGNORE INTO briefings (briefing_type, content, briefing_date)
         VALUES (?,?,?)""", ("morning", morning_content, today.isoformat()))
+
+    # ── Вечерняя сводка ──────────────────────────────────────────────────
+    evening_content = json.dumps({
+        "type": "evening",
+        "date": today.isoformat(),
+        "energy_end": 7,
+        "completed": ["Закрыт вопрос с юристом по договору", "Прошла стратегическая сессия Q3", "Созвон с командой"],
+        "tomorrow_preview": ["11:00 Встреча с инвестором"],
+        "reflection": "Продуктивный день. Все ключевые задачи выполнены. Энергия к вечеру снизилась до 7/10.",
+        "recommendation": "Лечь до 23:00. Завтра важная встреча с инвестором — нужен свежий ресурс."
+    })
+    cur.execute("""INSERT OR IGNORE INTO briefings (briefing_type, content, briefing_date)
+        VALUES (?,?,?)""", ("evening", evening_content, today.isoformat()))
 
     conn.commit()
 
@@ -835,6 +872,10 @@ def get_dashboard():
         except:
             pass
 
+    active_reminders = conn.execute(
+        "SELECT id, title, notes, due_at FROM reminders WHERE is_active=1 ORDER BY id LIMIT 5"
+    ).fetchall()
+
     conn.close()
     return {
         "today": today,
@@ -846,6 +887,7 @@ def get_dashboard():
         "next_medical_visit": dict(next_visit) if next_visit else None,
         "month_expenses": month_expenses,
         "upcoming_birthdays": bday_soon,
+        "active_reminders": [dict(r) for r in active_reminders],
     }
 
 

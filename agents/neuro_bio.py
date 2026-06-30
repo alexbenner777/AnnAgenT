@@ -37,8 +37,7 @@ async def run(services, question: str = None) -> str:
         "date": today.isoformat(),
         "oura": oura,
         "subjective": {k: dh.get(k) for k in
-                       ("energy_subjective", "focus_subjective", "mood_subjective",
-                        "workout_done", "massage_done", "alcohol")},
+                       ("energy_subjective", "workout_done", "massage_done", "alcohol")},
         "readiness_trend_7d": [r.get("readiness_score") for r in recent],
         "meetings_today": [{"time": m.get("time"), "title": m.get("title")} for m in meetings],
         "question": question,
@@ -64,9 +63,7 @@ def _fallback(oura: dict, dh: dict, cfg) -> str:
     else:
         parts.append("Данных Oura нет (токен не настроен или нет синка).")
     if energy is not None:
-        parts.append(f"Субъективно: энергия {energy}/10"
-                     + (f", фокус {dh['focus_subjective']}/10" if dh.get("focus_subjective") else "")
-                     + (f", настроение {dh['mood_subjective']}/10" if dh.get("mood_subjective") else ""))
+        parts.append(f"Субъективно: энергия {energy}/10")
     else:
         parts.append("Субъективное состояние не введено — пришли /state.")
     return "\n".join(parts)

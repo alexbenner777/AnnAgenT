@@ -56,11 +56,17 @@ export default function HomePage() {
   const urgentItems: string[] = []
   if (data) {
     if (!data.state_logged) urgentItems.push('Внести состояние сегодня')
-    if (data.medications_pending > 0) urgentItems.push(`Таблетки: ${data.medications_pending} не приняты`)
+    if (data.medications_pending > 0) urgentItems.push(`Таблетки: ${data.medications_pending} не ${data.medications_pending === 1 ? 'принята' : 'приняты'}`)
     data.upcoming_birthdays?.forEach((b: any) => {
       if (b.days_until === 0) urgentItems.push(`🎂 Сегодня ДР: ${b.name}`)
       else if (b.days_until <= 2) urgentItems.push(`🎂 Через ${b.days_until} дн. ДР: ${b.name}`)
     })
+    data.active_reminders?.forEach((r: any) => {
+      urgentItems.push(`⏰ ${r.title}`)
+    })
+    if (data.next_medical_visit) {
+      urgentItems.push(`🏥 Ближайший визит: ${data.next_medical_visit.specialty} · ${data.next_medical_visit.visit_date}`)
+    }
   }
 
   if (loading) return (

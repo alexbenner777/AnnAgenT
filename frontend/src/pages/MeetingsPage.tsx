@@ -19,6 +19,19 @@ const RISK_COLORS: Record<string, string> = {
   high: '#ef4444', medium: '#eab308', low: '#22c55e'
 }
 
+function showWip() {
+  if (window.Telegram?.WebApp?.showAlert) {
+    window.Telegram.WebApp.showAlert('⏳ В разработке')
+  } else {
+    // fallback для браузера
+    const el = document.createElement('div')
+    el.textContent = '⏳ В разработке'
+    el.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1c1c1e;color:#fff;padding:10px 20px;border-radius:12px;font-size:14px;z-index:9999;pointer-events:none;opacity:1;transition:opacity 0.4s'
+    document.body.appendChild(el)
+    setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 400) }, 2000)
+  }
+}
+
 export default function MeetingsPage() {
   const [meetings, setMeetings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -171,7 +184,9 @@ export default function MeetingsPage() {
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Форматы</p>
                         <div className="flex flex-wrap gap-1.5">
                           {FORMATS.map(f => (
-                            <button key={f} className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all active:scale-95 ${m.format === f ? 'bg-accent text-white' : 'bg-gray-100 text-gray-600'}`}>
+                            <button key={f}
+                              onClick={() => { haptic(); showWip() }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all active:scale-95 ${m.format === f ? 'bg-accent text-white' : 'bg-gray-100 text-gray-600'}`}>
                               {FORMAT_LABELS[f]}
                             </button>
                           ))}
@@ -180,10 +195,14 @@ export default function MeetingsPage() {
 
                       {/* Action buttons */}
                       <div className="flex gap-2 flex-wrap">
-                        <button className="glass-button px-3 py-2 text-xs flex items-center gap-1.5">
+                        <button
+                          onClick={() => { haptic(); showWip() }}
+                          className="glass-button px-3 py-2 text-xs flex items-center gap-1.5">
                           <Bookmark size={11} /> Дела → напоминания
                         </button>
-                        <button className="glass-button px-3 py-2 text-xs flex items-center gap-1.5">
+                        <button
+                          onClick={() => { haptic(); showWip() }}
+                          className="glass-button px-3 py-2 text-xs flex items-center gap-1.5">
                           <FileText size={11} /> Транскрипт
                         </button>
                       </div>

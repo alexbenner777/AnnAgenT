@@ -40,7 +40,7 @@ async def state_nudge(services, stage: int):
     if dh.get("energy_subjective") is not None:
         return
     if stage == 1:
-        text = "📝 Введи состояние на сегодня — /state (энергия, фокус, настроение, 3 тапа)."
+        text = "📝 Введи состояние на сегодня — /state (энергия, сон, тренировка, 3 тапа)."
     else:
         text = ("📝 Последнее напоминание про /state. "
                 "Не введёшь — дальше работаю по данным Oura и истории.")
