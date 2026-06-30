@@ -29,9 +29,14 @@ CREATE TABLE IF NOT EXISTS medications (
     name TEXT NOT NULL,
     dosage TEXT,
     schedule_times TEXT DEFAULT '[]',
+    days_of_week TEXT,
+    with_food TEXT,
     is_active INTEGER DEFAULT 1,
     is_critical INTEGER DEFAULT 0,
-    notes TEXT
+    supply_units INTEGER,
+    end_date TEXT,
+    notes TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS medication_logs (
@@ -43,56 +48,88 @@ CREATE TABLE IF NOT EXISTS medication_logs (
     FOREIGN KEY(medication_id) REFERENCES medications(id)
 );
 
+CREATE TABLE IF NOT EXISTS medication_intake_log (
+    medication_id INTEGER NOT NULL,
+    scheduled_at TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    reminders_sent INTEGER DEFAULT 0,
+    confirmed_at TEXT,
+    PRIMARY KEY (medication_id, scheduled_at)
+);
+
 CREATE TABLE IF NOT EXISTS medical_visits (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    specialty TEXT,
-    doctor TEXT,
     visit_date TEXT,
-    status TEXT DEFAULT 'planned',
+    doctor TEXT,
+    specialty TEXT,
     reason TEXT,
+    outcome TEXT,
+    followup_date TEXT,
     schedule_pattern TEXT,
-    notes TEXT
+    status TEXT DEFAULT 'planned',
+    created_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS lab_panels (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     lab_name TEXT,
     taken_on TEXT,
-    notes TEXT
+    source TEXT,
+    notes TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS lab_results (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     panel_id INTEGER,
+    taken_on TEXT,
     marker TEXT,
+    marker_key TEXT,
     value REAL,
     value_text TEXT,
     unit TEXT,
     ref_low REAL,
     ref_high REAL,
     flag TEXT DEFAULT 'normal',
+    created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY(panel_id) REFERENCES lab_panels(id)
 );
 
 CREATE TABLE IF NOT EXISTS calendar_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    event_date TEXT,
+    event_date TEXT NOT NULL,
+    title TEXT,
     start_time TEXT,
     end_time TEXT,
+    meeting_type TEXT DEFAULT 'work',
+    cognitive_load TEXT DEFAULT 'medium',
     location TEXT,
     description TEXT,
-    cognitive_load TEXT DEFAULT 'medium',
-    category TEXT
+    created_at TEXT DEFAULT (datetime('now'))
 );
 
-CREATE TABLE IF NOT EXISTS finances (
+CREATE TABLE IF NOT EXISTS expenses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     amount REAL NOT NULL,
     category TEXT,
     description TEXT,
-    expense_date TEXT,
-    type TEXT DEFAULT 'expense'
+    expense_date TEXT DEFAULT (date('now')),
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS income (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    amount REAL NOT NULL,
+    source TEXT,
+    income_date TEXT DEFAULT (date('now')),
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS budget_limits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL,
+    monthly_limit REAL NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS finance_limits (
@@ -101,14 +138,85 @@ CREATE TABLE IF NOT EXISTS finance_limits (
     monthly_limit REAL
 );
 
+CREATE TABLE IF NOT EXISTS reminders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    notes TEXT,
+    due_at TEXT,
+    schedule_times TEXT,
+    days_of_week TEXT,
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS reminder_log (
+    reminder_id INTEGER NOT NULL,
+    scheduled_at TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    confirmed_at TEXT,
+    PRIMARY KEY (reminder_id, scheduled_at)
+);
+
 CREATE TABLE IF NOT EXISTS contacts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    circle TEXT DEFAULT 'extended',
     relation TEXT,
-    city TEXT,
+    circle TEXT DEFAULT 'extended',
     birthday TEXT,
-    notes TEXT
+    bday_md TEXT,
+    interests TEXT,
+    language TEXT,
+    notes TEXT,
+    city TEXT,
+    occupation TEXT,
+    last_contact TEXT,
+    touch_days INTEGER,
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS gift_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contact_id INTEGER,
+    gift TEXT,
+    direction TEXT DEFAULT 'given',
+    occasion TEXT,
+    gift_date TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS user_profile (
+    telegram_user_id INTEGER PRIMARY KEY,
+    chat_id INTEGER,
+    name TEXT,
+    role TEXT DEFAULT 'viewer',
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS daily_health (
+    date TEXT PRIMARY KEY,
+    readiness_score INTEGER,
+    hrv_avg REAL,
+    sleep_score INTEGER,
+    sleep_hours REAL,
+    heart_rate_avg INTEGER,
+    energy_subjective INTEGER,
+    workout_done INTEGER DEFAULT 0,
+    massage_done INTEGER DEFAULT 0,
+    alcohol INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS meetings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT,
+    transcript TEXT,
+    summary TEXT,
+    meeting_date TEXT DEFAULT (date('now')),
+    participants TEXT,
+    format TEXT DEFAULT 'protocol',
+    risk_flag TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS daily_state (
@@ -126,18 +234,16 @@ CREATE TABLE IF NOT EXISTS daily_state (
 
 CREATE TABLE IF NOT EXISTS briefings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    briefing_date TEXT,
-    briefing_type TEXT,
-    content TEXT
+    briefing_type TEXT DEFAULT 'morning',
+    content TEXT,
+    briefing_date TEXT DEFAULT (date('now')),
+    created_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS settings (
-    id INTEGER PRIMARY KEY,
-    natal_date TEXT,
-    natal_time TEXT,
-    natal_city TEXT,
-    briefing_morning_time TEXT DEFAULT '07:00',
-    briefing_evening_time TEXT DEFAULT '22:00'
+    key TEXT PRIMARY KEY,
+    value TEXT,
+    updated_at TEXT DEFAULT (datetime('now'))
 );
 """)
 
@@ -147,88 +253,108 @@ CREATE TABLE IF NOT EXISTS settings (
         today = date.today().isoformat()
         tomorrow = (date.today() + timedelta(1)).isoformat()
         next_week = (date.today() + timedelta(7)).isoformat()
+        day_minus1 = (date.today() - timedelta(1)).isoformat()
+        day_minus2 = (date.today() - timedelta(2)).isoformat()
+        day_minus3 = (date.today() - timedelta(3)).isoformat()
+        day_minus5 = (date.today() - timedelta(5)).isoformat()
+        day_minus7 = (date.today() - timedelta(7)).isoformat()
+        day_plus3 = (date.today() + timedelta(3)).isoformat()
 
-        conn.executescript(f"""
-INSERT INTO medications(name,dosage,schedule_times,is_critical,is_active) VALUES
-  ('Витамин D3','5000 МЕ','["09:00"]',0,1),
-  ('Магний','400 мг','["21:00"]',0,1),
-  ('Омега-3','2000 мг','["09:00","14:00"]',0,1),
-  ('Мелатонин','3 мг','["22:30"]',0,1);
-
-INSERT INTO medication_logs(medication_id,scheduled_at,status) VALUES
-  (1,'{today} 09:00','pending'),
-  (2,'{today} 21:00','pending'),
-  (3,'{today} 09:00','taken'),
-  (3,'{today} 14:00','pending'),
-  (4,'{today} 22:30','pending');
-
-INSERT INTO medical_visits(specialty,doctor,visit_date,status,reason) VALUES
-  ('Кардиология','Иванов А.В.','{next_week}','planned','Плановый осмотр, ЭКГ'),
-  ('Остеопатия','Смирнова Е.Н.','{tomorrow}','planned','Сеанс коррекции позвоночника'),
-  ('Нутрициология','Козлов М.П.',NULL,'planned','Разбор анализов','раз в 3 месяца',NULL);
-
-INSERT INTO lab_panels(lab_name,taken_on) VALUES
-  ('Инвитро','{today}');
-
-INSERT INTO lab_results(panel_id,marker,value,unit,ref_low,ref_high,flag) VALUES
-  (1,'Витамин D',45.3,'нг/мл',30,100,'normal'),
-  (1,'Ферритин',18.5,'нг/мл',20,250,'low'),
-  (1,'B12',380,'пг/мл',200,900,'normal'),
-  (1,'Тестостерон общий',22.4,'нмоль/л',12,35,'normal'),
-  (1,'TSH',2.1,'мкМЕ/мл',0.4,4.0,'normal'),
-  (1,'Гемоглобин',155,'г/л',130,170,'normal'),
-  (1,'СРБ',0.8,'мг/л',0,5,'normal'),
-  (1,'Гомоцистеин',14.2,'мкмоль/л',5,12,'high');
-
-INSERT INTO calendar_events(title,event_date,start_time,end_time,cognitive_load,location,description) VALUES
-  ('Встреча с командой','{today}','10:00','11:30','high','Офис','Планёрка по проекту LOS'),
-  ('Остеопат','{tomorrow}','12:00','13:00','low','Клиника','Сеанс коррекции'),
-  ('Звонок с инвестором','{tomorrow}','15:00','16:00','high','Zoom','Питч проекта'),
-  ('Тренировка','{today}','19:00','20:30','medium','Зал','Силовая'),
-  ('День рождения Маши','{ (date.today() + timedelta(3)).isoformat() }','','','low','','');
-
-INSERT INTO finances(amount,category,description,expense_date,type) VALUES
-  (3500,'Еда','Рестораны','{today}','expense'),
-  (1200,'Транспорт','Яндекс Go','{today}','expense'),
-  (8000,'Здоровье','Клиника','{today}','expense'),
-  (2300,'Продукты','ВкусВилл','{ (date.today() - timedelta(1)).isoformat() }','expense'),
-  (450000,'Работа','Оплата проекта','{ (date.today() - timedelta(2)).isoformat() }','income'),
-  (15000,'Развлечения','Билеты на концерт','{ (date.today() - timedelta(3)).isoformat() }','expense'),
-  (12000,'Спорт','Абонемент в зал','{ (date.today() - timedelta(5)).isoformat() }','expense'),
-  (5600,'Одежда','Новые кроссовки','{ (date.today() - timedelta(7)).isoformat() }','expense');
-
-INSERT INTO finance_limits(category,monthly_limit) VALUES
-  ('Еда',50000),
-  ('Транспорт',15000),
-  ('Развлечения',30000),
-  ('Здоровье',40000);
-
-INSERT INTO contacts(name,circle,relation,city,birthday) VALUES
-  ('Аня Иванова','core','Ассистент','Москва','1995-03-15'),
-  ('Дима Козлов','close','Друг','Москва','1988-07-22'),
-  ('Маша Петрова','close','Подруга','Санкт-Петербург','{ (date.today() + timedelta(3)).strftime('%Y-%m-%d') }'),
-  ('Сергей Лавров','work','Партнёр','Москва','1982-11-03'),
-  ('Катя Смирнова','work','Коллега','Москва','1990-04-18'),
-  ('Алексей Борисов','extended','Знакомый','Лондон','1985-09-27'),
-  ('Виктор Новиков','work','Инвестор','Дубай','1979-01-14');
-
-INSERT INTO daily_state(state_date,energy_subjective,sleep_score,readiness_score,hrv_avg,workout_done) VALUES
-  ('{today}',7,8,72,45.3,1),
-  ('{ (date.today() - timedelta(1)).isoformat() }',6,7,65,38.1,0),
-  ('{ (date.today() - timedelta(2)).isoformat() }',8,9,81,52.0,1),
-  ('{ (date.today() - timedelta(3)).isoformat() }',5,6,58,33.4,0);
-
-INSERT INTO briefings(briefing_date,briefing_type,content) VALUES
-  ('{today}','morning','{{
-    "priorities": ["Встреча с командой в 10:00 — подготовить слайды","Остеопат завтра в 12:00 — не забыть выпить воды","Ферритин низкий — рассмотреть добавку железа"],
-    "schedule": ["10:00 Встреча с командой (офис)","19:00 Тренировка (зал)"],
-    "state": {{"energy": 7, "sleep": 8, "readiness": 72}},
-    "important_dates": ["Завтра: Звонок с инвестором в 15:00","Через 3 дня: ДР Маши"]
-  }}');
-
-INSERT INTO settings(id,natal_date,natal_time,natal_city,briefing_morning_time,briefing_evening_time) VALUES
-  (1,'1988-07-15','14:30','Москва','07:00','22:00');
-""")
+        cur = conn.cursor()
+        cur.executemany(
+            "INSERT INTO medications(name,dosage,schedule_times,is_critical,is_active) VALUES (?,?,?,?,?)",
+            [
+                ('Витамин D3','5000 МЕ','["09:00"]',0,1),
+                ('Магний','400 мг','["21:00"]',0,1),
+                ('Омега-3','2000 мг','["09:00","14:00"]',0,1),
+                ('Мелатонин','3 мг','["22:30"]',0,1),
+            ])
+        cur.executemany(
+            "INSERT INTO medication_logs(medication_id,scheduled_at,status) VALUES (?,?,?)",
+            [
+                (1,f'{today} 09:00','pending'),
+                (2,f'{today} 21:00','pending'),
+                (3,f'{today} 09:00','taken'),
+                (3,f'{today} 14:00','pending'),
+                (4,f'{today} 22:30','pending'),
+            ])
+        cur.executemany(
+            "INSERT INTO medical_visits(specialty,doctor,visit_date,status,reason) VALUES (?,?,?,?,?)",
+            [
+                ('Кардиология','Иванов А.В.',next_week,'planned','Плановый осмотр, ЭКГ'),
+                ('Остеопатия','Смирнова Е.Н.',tomorrow,'planned','Сеанс коррекции позвоночника'),
+                ('Нутрициология','Козлов М.П.',None,'planned','Разбор анализов'),
+            ])
+        cur.execute("INSERT INTO lab_panels(lab_name,taken_on) VALUES (?,?)", ('Инвитро', today))
+        cur.executemany(
+            "INSERT INTO lab_results(panel_id,marker,value,unit,ref_low,ref_high,flag) VALUES (?,?,?,?,?,?,?)",
+            [
+                (1,'Витамин D',45.3,'нг/мл',30,100,'normal'),
+                (1,'Ферритин',18.5,'нг/мл',20,250,'low'),
+                (1,'B12',380,'пг/мл',200,900,'normal'),
+                (1,'Тестостерон общий',22.4,'нмоль/л',12,35,'normal'),
+                (1,'TSH',2.1,'мкМЕ/мл',0.4,4.0,'normal'),
+                (1,'Гемоглобин',155,'г/л',130,170,'normal'),
+                (1,'СРБ',0.8,'мг/л',0,5,'normal'),
+                (1,'Гомоцистеин',14.2,'мкмоль/л',5,12,'high'),
+            ])
+        cur.executemany(
+            "INSERT INTO calendar_events(event_date,title,start_time,end_time,meeting_type,cognitive_load,location,description) VALUES (?,?,?,?,?,?,?,?)",
+            [
+                (today,'Встреча с командой','10:00','11:30','work','high','Офис','Планёрка по проекту LOS'),
+                (tomorrow,'Остеопат','12:00','13:00','health','low','Клиника','Сеанс коррекции'),
+                (tomorrow,'Звонок с инвестором','15:00','16:00','work','high','Zoom','Питч проекта'),
+                (today,'Тренировка','19:00','20:30','personal','medium','Зал','Силовая'),
+                (day_plus3,'День рождения Маши','','','personal','low','',''),
+            ])
+        cur.executemany(
+            "INSERT INTO expenses(amount,category,description,expense_date) VALUES (?,?,?,?)",
+            [
+                (3500,'Еда','Рестораны',today),
+                (1200,'Транспорт','Яндекс Go',today),
+                (8000,'Здоровье','Клиника',today),
+                (2300,'Продукты','ВкусВилл',day_minus1),
+                (15000,'Развлечения','Билеты на концерт',day_minus3),
+                (12000,'Спорт','Абонемент в зал',day_minus5),
+                (5600,'Одежда','Новые кроссовки',day_minus7),
+            ])
+        cur.execute(
+            "INSERT INTO income(amount,source,income_date) VALUES (?,?,?)",
+            (450000,'Оплата проекта',day_minus2))
+        cur.executemany(
+            "INSERT INTO budget_limits(category,monthly_limit) VALUES (?,?)",
+            [
+                ('Еда',50000),('Транспорт',15000),('Развлечения',30000),('Здоровье',40000),
+            ])
+        cur.executemany(
+            "INSERT INTO contacts(name,circle,relation,city,birthday,notes) VALUES (?,?,?,?,?,?)",
+            [
+                ('Аня Иванова','core','Ассистент','Москва','1995-03-15',''),
+                ('Дима Козлов','close','Друг','Москва','1988-07-22',''),
+                ('Маша Петрова','close','Подруга','Санкт-Петербург',day_plus3,''),
+                ('Сергей Лавров','work','Партнёр','Москва','1982-11-03',''),
+                ('Катя Смирнова','work','Коллега','Москва','1990-04-18',''),
+                ('Алексей Борисов','extended','Знакомый','Лондон','1985-09-27',''),
+                ('Виктор Новиков','work','Инвестор','Дубай','1979-01-14',''),
+            ])
+        cur.executemany(
+            "INSERT INTO daily_state(state_date,energy_subjective,sleep_score,readiness_score,hrv_avg,workout_done) VALUES (?,?,?,?,?,?)",
+            [
+                (today,7,8,72,45.3,1),
+                (day_minus1,6,7,65,38.1,0),
+                (day_minus2,8,9,81,52.0,1),
+                (day_minus3,5,6,58,33.4,0),
+            ])
+        import json as _json
+        briefing_content = _json.dumps({
+            "priorities": ["Встреча с командой в 10:00 — подготовить слайды","Ферритин низкий — рассмотреть добавку железа"],
+            "schedule": ["10:00 Встреча с командой (офис)","19:00 Тренировка (зал)"],
+            "state": {"energy": 7, "sleep": 8, "readiness": 72},
+            "important_dates": ["Завтра: Звонок с инвестором в 15:00",f"Через 3 дня: ДР Маши"]
+        })
+        cur.execute(
+            "INSERT INTO briefings(briefing_date,briefing_type,content) VALUES (?,?,?)",
+            (today,'morning', briefing_content))
         conn.commit()
     conn.close()
 
