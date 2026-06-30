@@ -1,11 +1,29 @@
+# Secrets & local config
 .env
-los_data.db
-los_data.db-wal
-los_data.db-shm
+
+# SQLite databases (auto-created on first run)
+*.db
+*.db-wal
+*.db-shm
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
 .venv/
 venv/
+.pythonlibs/
+
+# Node
+frontend/node_modules/
+
+# Frontend build (rebuilt on each start)
+frontend/dist/
+public/assets/
+
+# Media / temp
 *.ogg
+*.mp3
 *.log
 .DS_Store
+replit_fixed.txt

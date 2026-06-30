@@ -1,42 +1,16 @@
-# LOS — Life Operating System (Phase 1 MVP)
-# Точные версии под Replit / локальный Python 3.11+
-
-aiogram==3.13.1          # Telegram-бот
-anthropic>=0.40.0        # «Мозги» — Claude (Opus 4.8), оркестратор + агенты
-openai==1.58.1           # только Whisper (распознавание голоса)
-aiosqlite>=0.20.0        # постоянное хранилище (SQLite, без сервера)
-apscheduler==3.10.4      # планировщик 07:00 / 22:00 / напоминания
-pytz==2024.2             # таймзоны для APScheduler (требует pytz, не zoneinfo)
-httpx==0.28.1            # HTTP-клиент (Oura API, iCal, rich-сообщения Bot API 10.1)
-markdown>=3.5            # markdown → HTML для сворачиваемых <details> в заметках встреч
-icalendar>=5.0.0         # парсинг Google Calendar (.ics)
-recurring-ical-events>=2.1.0  # разворот повторяющихся событий
-pyswisseph>=2.10         # Swiss Ephemeris (астрология): планеты, дома, транзиты
-python-dotenv==1.0.1     # загрузка .env локально
-tzdata==2024.2           # база таймзон (на чистых системах)
-
-# Опционально — долговременная семантическая память.
-# Код работает и без неё (Mem0 импортируется лениво, только при заданном MEM0_API_KEY).
-# ОТКЛЮЧЕНО для деплоя: Mem0 не используем (заменили своей БД ради приватности),
-# а пакет тянет много тяжёлых зависимостей и замедляет/ломает сборку.
-# Понадобится — раскомментируй и задай MEM0_API_KEY.
-# mem0ai==0.1.29
-
-# Примечание: sqlalchemy/pydantic/aiofiles из исходного ТЗ не используются —
-# слой БД сделан на чистом asyncpg (проще и надёжнее для MVP).
-aiogram
-aiosqlite>=0.20.0
+aiogram==3.13.1
 anthropic>=0.40.0
-apscheduler==3.10.4
-fastapi
-httpx==0.28.1
-icalendar>=5.0.0
-markdown>=3.5
 openai==1.58.1
-pydantic
-python-dotenv==1.0.1
+aiosqlite>=0.20.0
+apscheduler==3.10.4
 pytz==2024.2
+httpx==0.28.1
+markdown>=3.5
+icalendar>=5.0.0
 recurring-ical-events>=2.1.0
-tzdata==2024.2
-uvicorn[standard]
 pyswisseph>=2.10
+python-dotenv==1.0.1
+tzdata==2024.2
+fastapi
+uvicorn[standard]
+pydantic
