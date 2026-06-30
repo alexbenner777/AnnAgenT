@@ -118,7 +118,7 @@ export default function StatePage() {
 
   const chartData = history.map(d => ({
     date: d.date?.slice(5),
-    Энергия: d.energy_subjective,
+    'Общее состояние': d.energy_subjective,
     Сон: d.sleep_score,
     Готовность: d.readiness_score,
     HRV: d.hrv_avg ? Math.round(d.hrv_avg) : null,
@@ -143,7 +143,7 @@ export default function StatePage() {
           </div>
 
           <Slider
-            label="Энергия"
+            label="Общее состояние"
             value={form.energy_subjective}
             onChange={v => setForm(p => ({...p, energy_subjective: v}))}
             color="#5B9DB8"
@@ -216,7 +216,7 @@ export default function StatePage() {
         {chartData.length > 0 && (
           <>
             <GlassCard delay={0.18} className="p-4">
-              <p className="font-semibold text-gray-800 text-sm mb-3">Энергия — 7 дней <span className="text-xs text-gray-400 font-normal">(из 10)</span></p>
+              <p className="font-semibold text-gray-800 text-sm mb-3">Общее состояние — 7 дней <span className="text-xs text-gray-400 font-normal">(из 10)</span></p>
               <ResponsiveContainer width="100%" height={100}>
                 <AreaChart data={chartData}>
                   <defs>
@@ -231,7 +231,7 @@ export default function StatePage() {
                     contentStyle={{ background: 'rgba(255,255,255,0.95)', border: 'none', borderRadius: 12, fontSize: 11 }}
                     labelStyle={{ fontWeight: 600 }}
                   />
-                  <Area type="monotone" dataKey="Энергия" stroke="#5B9DB8" strokeWidth={2} fill="url(#energyGrad)" dot={false} />
+                  <Area type="monotone" dataKey="Общее состояние" stroke="#5B9DB8" strokeWidth={2} fill="url(#energyGrad)" dot={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </GlassCard>

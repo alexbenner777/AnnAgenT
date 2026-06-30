@@ -8,8 +8,8 @@ import {
 import {
   Zap, Calendar, Wallet, Activity,
   Gift, ChevronRight, Pill, Clock, Moon, Dumbbell,
-  Bell, Stethoscope, X, Plus, Mic, Users,
-  CheckCircle2, Circle, TrendingDown, Star, ChevronDown, ChevronUp
+  Bell, Stethoscope, X, Plus, Sun,
+  CheckCircle2, Circle, Star, ChevronDown, ChevronUp
 } from 'lucide-react'
 import GlassCard from '../components/GlassCard'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -102,7 +102,7 @@ function WeekSparkline({ history }: { history: any[] }) {
   const data = [...history].reverse().map(d => ({
     day: new Date(d.date ?? d.state_date).toLocaleDateString('ru-RU', { weekday: 'short' }),
     Готовность: d.readiness_score ?? 0,
-    Энергия: d.energy_subjective ? d.energy_subjective * 10 : 0,
+    'Общее состояние': d.energy_subjective ? d.energy_subjective * 10 : 0,
   }))
   return (
     <div style={{ height: 60, width: '100%' }}>
@@ -119,7 +119,7 @@ function WeekSparkline({ history }: { history: any[] }) {
           <Tooltip contentStyle={{ background: 'rgba(255,255,255,0.92)', border: '1px solid rgba(255,255,255,0.8)', borderRadius: 12, fontSize: 11, backdropFilter: 'blur(12px)' }}
             labelStyle={{ fontWeight: 700, color: '#1a1a2e', fontSize: 11 }} itemStyle={{ fontSize: 11 }} />
           <Area type="monotone" dataKey="Готовность" stroke="#5B9DB8" strokeWidth={2} fill="url(#gReady)" dot={false} />
-          <Area type="monotone" dataKey="Энергия" stroke="#34d399" strokeWidth={2} fill="url(#gEnergy)" dot={false} />
+          <Area type="monotone" dataKey="Общее состояние" stroke="#34d399" strokeWidth={2} fill="url(#gEnergy)" dot={false} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -613,7 +613,7 @@ function AnyaHome({ data, history }: { data: any; history: any[] }) {
         </div>
         <div className="flex justify-around">
           <RadialRing value={readiness} max={100} color="#5B9DB8" label="Готовность" sublabel="%" size={84} stroke={8} />
-          <RadialRing value={energy} max={10} color="#34d399" label="Энергия" sublabel="/10" size={84} stroke={8} />
+          <RadialRing value={energy} max={10} color="#34d399" label="Состояние" sublabel="/10" size={84} stroke={8} />
           <RadialRing value={sleep} max={100} color="#a78bfa" label="Сон" sublabel="%" size={84} stroke={8}>
             {sleep != null ? (
               <><Moon size={13} color="#a78bfa" /><span style={{ fontSize: 17, fontWeight: 800, color: '#1a1a2e', lineHeight: 1, marginTop: 2 }}>{sleep}</span></>
@@ -646,7 +646,7 @@ function AnyaHome({ data, history }: { data: any; history: any[] }) {
             <span className="font-semibold text-gray-800 text-sm">Динамика за неделю</span>
             <div className="ml-auto flex gap-3 text-xs text-gray-400">
               <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-[#5B9DB8]" />Готовность</span>
-              <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-emerald-400" />Энергия</span>
+              <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-emerald-400" />Состояние</span>
             </div>
           </div>
           <WeekSparkline history={history} />
@@ -695,6 +695,7 @@ function DenHome({ data, history }: { data: any; history: any[] }) {
   const navigate = useNavigate()
   const [todayEvents, setTodayEvents] = useState<any[]>([])
   const [priorities, setPriorities] = useState<string[]>([])
+  const [morningBriefing, setMorningBriefing] = useState<any>(null)
   const [finances, setFinances] = useState<any>(null)
 
   useEffect(() => {
@@ -704,9 +705,10 @@ function DenHome({ data, history }: { data: any; history: any[] }) {
     briefingApi.getToday()
       .then(briefings => {
         const morning = briefings.find((b: any) => b.briefing_type === 'morning')
-        const raw: string[] = morning?.content?.priorities ?? []
         const MEDICAL_KW = /таблет|витамин|врач|визит|анализ|укол|лекарств|клиник|больниц/i
+        const raw: string[] = morning?.content?.priorities ?? []
         setPriorities(raw.filter((p: string) => !MEDICAL_KW.test(p)))
+        setMorningBriefing(morning ?? null)
       })
       .catch(() => {})
     financesApi.getSummary().then(setFinances).catch(() => {})
@@ -728,7 +730,7 @@ function DenHome({ data, history }: { data: any; history: any[] }) {
         </div>
         <div className="flex justify-around">
           <RadialRing value={readiness} max={100} color="#5B9DB8" label="Готовность" sublabel="%" size={84} stroke={8} />
-          <RadialRing value={energy} max={10} color="#34d399" label="Энергия" sublabel="/10" size={84} stroke={8} />
+          <RadialRing value={energy} max={10} color="#34d399" label="Состояние" sublabel="/10" size={84} stroke={8} />
           <div className="flex flex-col items-center gap-1.5">
             <div className="w-[84px] h-[84px] flex flex-col items-center justify-center rounded-full bg-gradient-to-br from-amber-50 to-amber-100 border-2 border-amber-200">
               <Dumbbell size={18} className={state?.workout_done ? 'text-amber-500' : 'text-gray-300'} />
@@ -750,7 +752,7 @@ function DenHome({ data, history }: { data: any; history: any[] }) {
             <span className="font-semibold text-gray-800 text-sm">Динамика за неделю</span>
             <div className="ml-auto flex gap-3 text-xs text-gray-400">
               <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-[#5B9DB8]" />Готовность</span>
-              <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-emerald-400" />Энергия</span>
+              <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-emerald-400" />Состояние</span>
             </div>
           </div>
           <WeekSparkline history={history} />
@@ -784,22 +786,61 @@ function DenHome({ data, history }: { data: any; history: any[] }) {
         </GlassCard>
       )}
 
-      {priorities.length > 0 && (
-        <GlassCard delay={0.12} className="p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-7 h-7 rounded-xl bg-amber-100 flex items-center justify-center">
-              <Zap size={14} className="text-amber-500" />
-            </div>
-            <span className="font-semibold text-gray-800 text-sm">Приоритеты дня</span>
-          </div>
-          <div className="space-y-2">
-            {priorities.slice(0, 4).map((p, i) => (
-              <div key={i} className="flex items-start gap-2.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 flex-shrink-0" />
-                <p className="text-sm text-gray-700">{p}</p>
+      {morningBriefing && (
+        <GlassCard delay={0.12} className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-xl bg-amber-50 flex items-center justify-center">
+                <Sun size={14} className="text-amber-400" />
               </div>
-            ))}
+              <div>
+                <span className="font-semibold text-gray-800 text-sm">Брифинг</span>
+                {morningBriefing.briefing_date && (
+                  <p className="text-[10px] text-gray-400">
+                    {new Date(morningBriefing.briefing_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+                  </p>
+                )}
+              </div>
+            </div>
+            <button onClick={() => navigate('/briefing')}
+              className="text-xs text-[#5B9DB8] font-medium flex items-center gap-0.5 active:opacity-70">
+              Подробнее <ChevronRight size={12} />
+            </button>
           </div>
+
+          {morningBriefing.content?.day_quality?.astro_note && (
+            <div className="px-3 py-2 bg-blue-50/60 rounded-xl">
+              <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wide mb-1">✨ Качество дня</p>
+              <p className="text-xs text-gray-600 leading-relaxed">{morningBriefing.content.day_quality.astro_note}</p>
+            </div>
+          )}
+
+          {(() => {
+            const MED = /таблет|витамин|врач|визит|анализ|укол|лекарств|клиник|больниц/i
+            const dates = (morningBriefing.content?.important_dates ?? []).filter((d: string) => !MED.test(d))
+            return dates.length > 0 ? (
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">🎯 Важные даты</p>
+                {dates.slice(0, 3).map((d: string, i: number) => (
+                  <p key={i} className="text-xs text-gray-700 leading-relaxed">• {d}</p>
+                ))}
+              </div>
+            ) : null
+          })()}
+
+          {priorities.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">⚡ Приоритеты</p>
+              <div className="space-y-1">
+                {priorities.slice(0, 4).map((p, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <div className="w-1 h-1 rounded-full bg-amber-400 mt-1.5 flex-shrink-0" />
+                    <p className="text-xs text-gray-700">{p}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </GlassCard>
       )}
 

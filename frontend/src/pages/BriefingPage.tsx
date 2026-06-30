@@ -13,7 +13,7 @@ function haptic(s: 'light' | 'medium' = 'light') {
 function formatBriefingText(b: any): string {
   const c = b.content || {}
   const lines: string[] = [`📋 ${b.briefing_type === 'morning' ? 'Утренний брифинг' : 'Вечерний дайджест'} — ${b.briefing_date}`, '']
-  if (c.state) lines.push(`⚡ Состояние: Энергия ${c.state.energy}/10 · Сон ${c.state.sleep} ч · Готовность ${c.state.readiness}`)
+  if (c.state) lines.push(`⚡ Состояние: Общее ${c.state.energy}/10 · Сон ${c.state.sleep} ч · Готовность ${c.state.readiness}`)
   if (c.day_quality) lines.push(`✨ День: ${c.day_quality.astro_note || ''}`)
   if (c.schedule?.length) { lines.push(''); lines.push('📅 Расписание:'); c.schedule.forEach((s: string) => lines.push(`• ${s}`)) }
   if (c.important_dates?.length) { lines.push(''); lines.push('🎯 Важные даты:'); c.important_dates.forEach((d: string) => lines.push(`• ${d}`)) }
@@ -128,7 +128,7 @@ export default function BriefingPage() {
                 {/* Quick stats */}
                 {c.state && (
                   <div className="flex gap-2 mt-3">
-                    <span className="badge bg-blue-50 text-blue-600 text-xs">⚡ {c.state.energy}/10</span>
+                    <span className="badge bg-blue-50 text-blue-600 text-xs">🧠 Состояние {c.state.energy}/10</span>
                     <span className="badge bg-green-50 text-green-600 text-xs">😴 {c.state.sleep} ч</span>
                     <span className="badge bg-purple-50 text-purple-600 text-xs">💜 {c.state.readiness}</span>
                   </div>
@@ -176,14 +176,12 @@ export default function BriefingPage() {
                     >
                       <RefreshCw size={13} /> Обновить
                     </button>
-                    {role === 'anya' && (
-                      <button
-                        onClick={() => handleForward(b)}
-                        className="flex-1 accent-button py-2.5 flex items-center justify-center gap-1.5 text-xs"
-                      >
-                        <Send size={13} /> Переслать Дену
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleForward(b)}
+                      className="flex-1 accent-button py-2.5 flex items-center justify-center gap-1.5 text-xs"
+                    >
+                      <Send size={13} /> Поделиться
+                    </button>
                   </div>
                 </div>
               )}
