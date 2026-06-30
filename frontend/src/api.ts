@@ -2,7 +2,7 @@ import axios from 'axios'
 
 const BASE = '/api'
 
-const api = axios.create({ baseURL: BASE, timeout: 10000 })
+const api = axios.create({ baseURL: BASE, timeout: 10000, withCredentials: true })
 
 export const healthApi = {
   getDaily: (days = 7) => api.get<any[]>('/health/daily', { params: { days } }).then(r => r.data),
@@ -65,6 +65,12 @@ export const settingsApi = {
 
 export const dashboardApi = {
   get: () => api.get<any>('/dashboard').then(r => r.data),
+}
+
+export const authApi = {
+  getRole: () => api.get<{ role: string }>('/auth/role').then(r => r.data),
+  setRole: (role: string) => api.post<{ role: string }>('/auth/set-role', { role }, { withCredentials: true }).then(r => r.data),
+  telegram: (initData: string) => api.post<{ role: string; telegram_id: number }>('/auth/telegram', { initData }, { withCredentials: true }).then(r => r.data),
 }
 
 export default api

@@ -6,20 +6,69 @@ Port: 8001
 import sqlite3
 import json
 import os
+import hmac
+import hashlib
 from datetime import datetime, date, timedelta
 from typing import Optional, List, Any
 from contextlib import asynccontextmanager
+from urllib.parse import parse_qsl
 
 try:
-    from fastapi import FastAPI, HTTPException, Query
+    from fastapi import FastAPI, HTTPException, Query, Request, Response
     from fastapi.middleware.cors import CORSMiddleware
+    from starlette.middleware.sessions import SessionMiddleware
     from pydantic import BaseModel
 except ImportError:
     import subprocess, sys
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "fastapi", "uvicorn[standard]", "--quiet"])
-    from fastapi import FastAPI, HTTPException, Query
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "fastapi", "uvicorn[standard]", "itsdangerous", "--quiet"])
+    from fastapi import FastAPI, HTTPException, Query, Request, Response
     from fastapi.middleware.cors import CORSMiddleware
+    from starlette.middleware.sessions import SessionMiddleware
     from pydantic import BaseModel
+
+# ── Допущенные владельцы (Anya) — Telegram user_id из LOS_OWNER_IDS ─────────
+def _parse_owner_ids() -> set:
+    ids: set = set()
+    raw = os.environ.get("LOS_OWNER_IDS", "")
+    for part in raw.replace(";", ",").split(","):
+        part = part.strip()
+        if part.lstrip("-").isdigit():
+            ids.add(int(part))
+    chat_id = os.environ.get("LOS_CHAT_ID", "").strip()
+    if chat_id.lstrip("-").isdigit():
+        ids.add(int(chat_id))
+    return ids
+
+OWNER_IDS: set = _parse_owner_ids()
+
+# ── Ключевые слова для медицинских напоминаний ────────────────────────────────
+_MEDICAL_REMINDER_KEYWORDS = ["вода", "витамин", "таблет", "лекарств", "препарат", "аптек"]
+
+def _is_medical_reminder(title: str) -> bool:
+    low = title.lower()
+    return any(kw in low for kw in _MEDICAL_REMINDER_KEYWORDS)
+
+# ── Роль из серверной сессии (подписанная кука, не заголовок) ────────────────
+def get_role(request: Request) -> str:
+    """Возвращает роль из серверной сессии. По умолчанию — den (fail-closed)."""
+    return request.session.get("role", "den")
+
+# ── Валидация Telegram initData (HMAC-SHA256) ─────────────────────────────────
+def _validate_telegram_init_data(init_data: str, bot_token: str) -> Optional[dict]:
+    """Проверяет подпись Telegram Mini App initData. Возвращает поля или None."""
+    try:
+        vals = dict(parse_qsl(init_data, keep_blank_values=True))
+        check_hash = vals.pop("hash", None)
+        if not check_hash:
+            return None
+        data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(vals.items()))
+        secret_key = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
+        calc_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(calc_hash, check_hash):
+            return None
+        return vals
+    except Exception:
+        return None
 
 DB_PATH = os.environ.get("LOS_DB_PATH", "los_miniapp.db")
 
@@ -432,6 +481,17 @@ def _seed_demo_data(conn):
 
 app = FastAPI(title="LOS Mini App API", version="1.0.0")
 
+_SESSION_SECRET = os.environ.get("SESSION_SECRET", "los-fallback-secret-change-me")
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=_SESSION_SECRET,
+    session_cookie="los_session",
+    max_age=30 * 24 * 3600,
+    https_only=False,
+    same_site="lax",
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -443,10 +503,45 @@ app.add_middleware(
 init_db()
 
 
+# ── AUTH ─────────────────────────────────────────────────────────────────────
+
+@app.get("/api/auth/role")
+async def auth_get_role(request: Request):
+    """Возвращает текущую роль из серверной сессии."""
+    return {"role": get_role(request)}
+
+
+@app.post("/api/auth/set-role")
+async def auth_set_role(request: Request, data: dict):
+    """Переключатель роли для браузерного превью. Пишет в серверную сессию."""
+    role = data.get("role", "den")
+    if role not in ("anya", "den"):
+        raise HTTPException(400, "Допустимые роли: anya, den")
+    request.session["role"] = role
+    return {"role": role}
+
+
+@app.post("/api/auth/telegram")
+async def auth_telegram(request: Request, data: dict):
+    """Валидирует Telegram initData на сервере и устанавливает роль в сессии."""
+    init_data = data.get("initData", "")
+    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    validated = _validate_telegram_init_data(init_data, bot_token)
+    if not validated:
+        raise HTTPException(403, "Неверная подпись Telegram initData")
+    user_info = json.loads(validated.get("user", "{}"))
+    tg_id = user_info.get("id")
+    role = "anya" if (tg_id and tg_id in OWNER_IDS) else "den"
+    request.session["role"] = role
+    return {"role": role, "telegram_id": tg_id}
+
+
 # ── HEALTH ──────────────────────────────────────────────────────────────
 
 @app.get("/api/health/daily")
-def get_daily_health(days: int = Query(7)):
+async def get_daily_health(request: Request, days: int = Query(7)):
+    if get_role(request) != "anya":
+        raise HTTPException(403, "Доступ закрыт")
     conn = get_db()
     rows = conn.execute("""SELECT * FROM daily_health ORDER BY date DESC LIMIT ?""", (days,)).fetchall()
     conn.close()
@@ -468,7 +563,9 @@ def post_daily_health(data: dict):
     return {"ok": True}
 
 @app.get("/api/health/medications")
-def get_medications():
+async def get_medications(request: Request):
+    if get_role(request) != "anya":
+        raise HTTPException(403, "Доступ закрыт")
     conn = get_db()
     meds = conn.execute("SELECT * FROM medications WHERE is_active=1").fetchall()
     today = date.today().isoformat()
@@ -507,7 +604,9 @@ def add_medication(data: dict):
     return {"ok": True}
 
 @app.get("/api/health/visits")
-def get_medical_visits():
+async def get_medical_visits(request: Request):
+    if get_role(request) != "anya":
+        raise HTTPException(403, "Доступ закрыт")
     conn = get_db()
     rows = conn.execute("SELECT * FROM medical_visits ORDER BY visit_date ASC").fetchall()
     conn.close()
@@ -525,7 +624,9 @@ def add_medical_visit(data: dict):
     return {"ok": True}
 
 @app.get("/api/health/labs")
-def get_lab_results():
+async def get_lab_results(request: Request):
+    if get_role(request) != "anya":
+        raise HTTPException(403, "Доступ закрыт")
     conn = get_db()
     panels = conn.execute("SELECT * FROM lab_panels ORDER BY taken_on DESC").fetchall()
     result = []
@@ -538,7 +639,9 @@ def get_lab_results():
     return result
 
 @app.get("/api/health/labs/trends")
-def get_lab_trends(marker_key: str = Query(...)):
+async def get_lab_trends(request: Request, marker_key: str = Query(...)):
+    if get_role(request) != "anya":
+        raise HTTPException(403, "Доступ закрыт")
     conn = get_db()
     rows = conn.execute("""SELECT taken_on, marker, value, unit, flag
         FROM lab_results WHERE marker_key=? ORDER BY taken_on ASC""", (marker_key,)).fetchall()
@@ -583,11 +686,14 @@ def get_today_events():
 
 # ── FINANCES ─────────────────────────────────────────────────────────────
 
+_DEN_HIDDEN_FINANCE_CATEGORIES = {"Здоровье"}
+
 @app.get("/api/finances/summary")
-def get_finances_summary():
+async def get_finances_summary(request: Request):
     conn = get_db()
     today = date.today()
     month_start = today.replace(day=1).isoformat()
+    role = get_role(request)
 
     total_exp = conn.execute("""SELECT SUM(amount) FROM expenses
         WHERE expense_date >= ?""", (month_start,)).fetchone()[0] or 0
@@ -601,13 +707,24 @@ def get_finances_summary():
         ORDER BY created_at DESC LIMIT 10""").fetchall()
 
     conn.close()
+
+    by_cat_list = [dict(r) for r in by_category]
+    limits_list = [dict(r) for r in limits]
+    recent_list = [dict(r) for r in recent]
+
+    if role != "anya":
+        by_cat_list = [r for r in by_cat_list if r.get("category") not in _DEN_HIDDEN_FINANCE_CATEGORIES]
+        limits_list = [r for r in limits_list if r.get("category") not in _DEN_HIDDEN_FINANCE_CATEGORIES]
+        recent_list = [r for r in recent_list if r.get("category") not in _DEN_HIDDEN_FINANCE_CATEGORIES]
+        total_exp = sum(r["total"] for r in by_cat_list)
+
     return {
         "month_income": total_inc,
         "month_expenses": total_exp,
         "balance": total_inc - total_exp,
-        "by_category": [dict(r) for r in by_category],
-        "limits": [dict(r) for r in limits],
-        "recent_expenses": [dict(r) for r in recent],
+        "by_category": by_cat_list,
+        "limits": limits_list,
+        "recent_expenses": recent_list,
     }
 
 @app.post("/api/finances/expenses")
@@ -641,12 +758,20 @@ def get_monthly_trend():
 
 # ── STATE (NEURO & BIO) ───────────────────────────────────────────────────
 
+_DEN_HIDDEN_STATE_FIELDS = {"hrv_avg", "heart_rate_avg"}
+
+def _filter_state_for_den(row: dict) -> dict:
+    return {k: v for k, v in row.items() if k not in _DEN_HIDDEN_STATE_FIELDS}
+
 @app.get("/api/state/history")
-def get_state_history(days: int = Query(7)):
+async def get_state_history(request: Request, days: int = Query(7)):
     conn = get_db()
     rows = conn.execute("""SELECT * FROM daily_health ORDER BY date DESC LIMIT ?""", (days,)).fetchall()
     conn.close()
-    return [dict(r) for r in reversed(rows)]
+    data = [dict(r) for r in reversed(rows)]
+    if get_role(request) != "anya":
+        data = [_filter_state_for_den(r) for r in data]
+    return data
 
 @app.post("/api/state/log")
 def log_state(data: dict):
@@ -662,12 +787,15 @@ def log_state(data: dict):
     return {"ok": True}
 
 @app.get("/api/state/today")
-def get_today_state():
+async def get_today_state(request: Request):
     conn = get_db()
     today = date.today().isoformat()
     row = conn.execute("SELECT * FROM daily_health WHERE date=?", (today,)).fetchone()
     conn.close()
-    return dict(row) if row else {}
+    data = dict(row) if row else {}
+    if get_role(request) != "anya":
+        data = _filter_state_for_den(data)
+    return data
 
 
 # ── BRIEFING / SUMMARY ────────────────────────────────────────────────────
@@ -769,12 +897,25 @@ def _migrate_meetings_shareable():
     except Exception:
         pass  # column already exists
 
+_DEN_HIDDEN_MEETING_FIELDS = {"risk_flag", "transcript"}
+
+def _filter_meeting_for_den(m: dict) -> dict:
+    return {k: v for k, v in m.items() if k not in _DEN_HIDDEN_MEETING_FIELDS}
+
 @app.get("/api/meetings")
-def get_meetings():
+async def get_meetings(request: Request):
     conn = get_db()
-    rows = conn.execute("SELECT * FROM meetings ORDER BY meeting_date DESC").fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
+    role = get_role(request)
+    if role == "anya":
+        rows = conn.execute("SELECT * FROM meetings ORDER BY meeting_date DESC").fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+    else:
+        rows = conn.execute(
+            "SELECT * FROM meetings WHERE shareable=1 ORDER BY meeting_date DESC"
+        ).fetchall()
+        conn.close()
+        return [_filter_meeting_for_den(dict(r)) for r in rows]
 
 @app.post("/api/meetings")
 def add_meeting(data: dict):
@@ -790,13 +931,18 @@ def add_meeting(data: dict):
     return {"ok": True}
 
 @app.get("/api/meetings/{meeting_id}")
-def get_meeting(meeting_id: int):
+async def get_meeting(request: Request, meeting_id: int):
     conn = get_db()
     row = conn.execute("SELECT * FROM meetings WHERE id=?", (meeting_id,)).fetchone()
     conn.close()
     if not row:
         raise HTTPException(404, "Meeting not found")
-    return dict(row)
+    m = dict(row)
+    if get_role(request) != "anya":
+        if not m.get("shareable"):
+            raise HTTPException(403, "Доступ закрыт")
+        m = _filter_meeting_for_den(m)
+    return m
 
 @app.post("/api/meetings/{meeting_id}/shareable")
 def toggle_meeting_shareable(meeting_id: int, data: dict):
@@ -810,7 +956,9 @@ def toggle_meeting_shareable(meeting_id: int, data: dict):
 # ── REMINDERS ─────────────────────────────────────────────────────────────
 
 @app.get("/api/reminders")
-def get_reminders():
+async def get_reminders(request: Request):
+    if get_role(request) != "anya":
+        raise HTTPException(403, "Доступ закрыт")
     conn = get_db()
     rows = conn.execute("SELECT * FROM reminders WHERE is_active=1 ORDER BY due_at").fetchall()
     conn.close()
@@ -859,23 +1007,18 @@ def update_settings(data: dict):
 
 # ── DASHBOARD SUMMARY ─────────────────────────────────────────────────────
 
+_DEN_HIDDEN_STATE_DASHBOARD = {"hrv_avg", "heart_rate_avg"}
+
 @app.get("/api/dashboard")
-def get_dashboard():
+async def get_dashboard(request: Request):
+    role = get_role(request)
     conn = get_db()
     today = date.today().isoformat()
 
     state = conn.execute("SELECT * FROM daily_health WHERE date=?", (today,)).fetchone()
-    meds = conn.execute("SELECT COUNT(*) FROM medications WHERE is_active=1").fetchone()[0]
-    pending_meds = conn.execute("""SELECT COUNT(*) FROM medication_intake_log
-        WHERE scheduled_at LIKE ? AND status='pending'""", (f"{today}%",)).fetchone()[0]
-    next_visit = conn.execute("""SELECT * FROM medical_visits
-        WHERE visit_date >= ? AND status='planned' ORDER BY visit_date LIMIT 1""",
-        (today,)).fetchone()
     today_events = conn.execute("""SELECT COUNT(*) FROM calendar_events
         WHERE event_date=?""", (today,)).fetchone()[0]
     month_start = date.today().replace(day=1).isoformat()
-    month_expenses = conn.execute("""SELECT SUM(amount) FROM expenses
-        WHERE expense_date >= ?""", (month_start,)).fetchone()[0] or 0
     upcoming_birthdays = conn.execute("""SELECT name, bday_md FROM contacts
         WHERE is_active=1 AND bday_md IS NOT NULL""").fetchall()
 
@@ -892,23 +1035,50 @@ def get_dashboard():
         except:
             pass
 
-    active_reminders = conn.execute(
-        "SELECT id, title, notes, due_at FROM reminders WHERE is_active=1 ORDER BY id LIMIT 5"
-    ).fetchall()
-
-    conn.close()
-    return {
-        "today": today,
-        "state": dict(state) if state else None,
-        "state_logged": state is not None and state["energy_subjective"] is not None,
-        "medications_total": meds,
-        "medications_pending": pending_meds,
-        "today_events_count": today_events,
-        "next_medical_visit": dict(next_visit) if next_visit else None,
-        "month_expenses": month_expenses,
-        "upcoming_birthdays": bday_soon,
-        "active_reminders": [dict(r) for r in active_reminders],
-    }
+    if role == "anya":
+        meds = conn.execute("SELECT COUNT(*) FROM medications WHERE is_active=1").fetchone()[0]
+        pending_meds = conn.execute("""SELECT COUNT(*) FROM medication_intake_log
+            WHERE scheduled_at LIKE ? AND status='pending'""", (f"{today}%",)).fetchone()[0]
+        next_visit = conn.execute("""SELECT * FROM medical_visits
+            WHERE visit_date >= ? AND status='planned' ORDER BY visit_date LIMIT 1""",
+            (today,)).fetchone()
+        month_expenses = conn.execute("""SELECT SUM(amount) FROM expenses
+            WHERE expense_date >= ?""", (month_start,)).fetchone()[0] or 0
+        active_reminders = conn.execute(
+            "SELECT id, title, notes, due_at FROM reminders WHERE is_active=1 ORDER BY id LIMIT 5"
+        ).fetchall()
+        state_dict = dict(state) if state else None
+        conn.close()
+        return {
+            "today": today,
+            "state": state_dict,
+            "state_logged": state is not None and state["energy_subjective"] is not None,
+            "medications_total": meds,
+            "medications_pending": pending_meds,
+            "today_events_count": today_events,
+            "next_medical_visit": dict(next_visit) if next_visit else None,
+            "month_expenses": month_expenses,
+            "upcoming_birthdays": bday_soon,
+            "active_reminders": [dict(r) for r in active_reminders],
+        }
+    else:
+        # den: нет медданных, нет клинических показателей
+        month_expenses = conn.execute("""SELECT SUM(amount) FROM expenses
+            WHERE expense_date >= ? AND category NOT IN ('Здоровье')""",
+            (month_start,)).fetchone()[0] or 0
+        conn.close()
+        state_dict = None
+        if state:
+            state_dict = {k: v for k, v in dict(state).items()
+                          if k not in _DEN_HIDDEN_STATE_DASHBOARD}
+        return {
+            "today": today,
+            "state": state_dict,
+            "state_logged": state is not None and state["energy_subjective"] is not None,
+            "today_events_count": today_events,
+            "month_expenses": month_expenses,
+            "upcoming_birthdays": bday_soon,
+        }
 
 
 if __name__ == "__main__":

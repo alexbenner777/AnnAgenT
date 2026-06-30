@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { useState, createContext, useContext } from 'react'
+import { useState, createContext, useContext, useEffect } from 'react'
 import type { UserRole } from './types'
+import { authApi } from './api'
 
 // Pages
 import HomePage from './pages/HomePage'
@@ -36,12 +37,45 @@ export const UserContext = createContext<UserCtx>({
 export const useUser = () => useContext(UserContext)
 
 export default function App() {
-  // Try to get user from Telegram WebApp
-  const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user
-  const defaultRole: UserRole = 'anya' // default to anya for demo
-
-  const [role, setRole] = useState<UserRole>(defaultRole)
+  const [role, setRoleState] = useState<UserRole>('anya')
+  const [ready, setReady] = useState(false)
   const name = role === 'anya' ? 'Аня' : 'Ден'
+
+  useEffect(() => {
+    const tgInitData = window.Telegram?.WebApp?.initData
+
+    if (tgInitData) {
+      // В Telegram — валидируем initData на сервере, роль назначает сервер
+      authApi.telegram(tgInitData)
+        .then(res => {
+          setRoleState(res.role as UserRole)
+        })
+        .catch(() => {
+          // fallback: просто спросим у сервера текущую роль
+          authApi.getRole().then(res => setRoleState(res.role as UserRole)).catch(() => {})
+        })
+        .finally(() => setReady(true))
+    } else {
+      // В браузере — читаем роль из серверной сессии (кука переживает F5)
+      authApi.getRole()
+        .then(res => setRoleState(res.role as UserRole))
+        .catch(() => {})
+        .finally(() => setReady(true))
+    }
+  }, [])
+
+  const setRole = (r: UserRole) => {
+    // Пишем роль в серверную сессию
+    authApi.setRole(r).then(res => setRoleState(res.role as UserRole)).catch(() => setRoleState(r))
+  }
+
+  if (!ready) {
+    return (
+      <div className="flex items-center justify-center min-h-dvh bg-gray-50">
+        <div className="w-8 h-8 border-2 border-gray-200 border-t-indigo-500 rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <UserContext.Provider value={{ role, name, setRole }}>
