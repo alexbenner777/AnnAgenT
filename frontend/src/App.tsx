@@ -13,7 +13,6 @@ import BriefingPage from './pages/BriefingPage'
 import ContactsPage from './pages/ContactsPage'
 import DayQualityPage from './pages/DayQualityPage'
 import MeetingsPage from './pages/MeetingsPage'
-import TasksPage from './pages/TasksPage'
 import RemindersPage from './pages/RemindersPage'
 import SettingsPage from './pages/SettingsPage'
 import DenDealsPage from './pages/DenDealsPage'
@@ -94,9 +93,6 @@ export default function App() {
             <Route path="/contacts" element={<ContactsPage />} />
             <Route path="/day-quality" element={<DayQualityPage />} />
             <Route path="/meetings" element={<MeetingsPage />} />
-            <Route path="/tasks" element={
-              role === 'anya' ? <TasksPage /> : <Navigate to="/" replace />
-            } />
             <Route path="/reminders" element={<RemindersPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/den-deals" element={

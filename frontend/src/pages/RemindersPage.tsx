@@ -68,7 +68,7 @@ export default function RemindersPage() {
       <div className="px-4 pt-6 pb-4 space-y-4">
         <PageHeader
           title="Напоминания"
-          subtitle="Разовые и повторяющиеся"
+          subtitle="Правила · питают ленту действий"
           action={
             <button onClick={() => { haptic(); setShowAdd(true) }} className="accent-button w-9 h-9 flex items-center justify-center">
               <Plus size={18} />

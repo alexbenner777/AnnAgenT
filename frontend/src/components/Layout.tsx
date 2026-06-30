@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Home, Heart, Calendar, Wallet, MoreHorizontal,
-  Activity, BookOpen, Users, Star, Mic, CheckSquare, Bell, Settings, X,
+  Activity, BookOpen, Users, Star, Mic, Bell, Settings, X,
   LayoutGrid, MessageCircle
 } from 'lucide-react'
 import { useUser } from '../App'
@@ -48,7 +48,6 @@ export default function Layout() {
     { path: '/contacts',    icon: Users,       label: 'Контакты',     emoji: '👥' },
     { path: '/day-quality', icon: Star,        label: 'Качество дня', emoji: '✨' },
     { path: '/meetings',    icon: Mic,         label: 'Встречи',      emoji: '🎙' },
-    { path: '/tasks',       icon: CheckSquare, label: 'Задачи',       emoji: '⚡' },
     { path: '/reminders',   icon: Bell,        label: 'Напоминания',  emoji: '🔔' },
     { path: '/settings',    icon: Settings,    label: 'Настройки',    emoji: '⚙️' },
   ]
