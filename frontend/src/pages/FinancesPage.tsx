@@ -14,6 +14,23 @@ const COLORS = ['#5B9DB8', '#86C1AD', '#E4D2B3', '#B8A0D4', '#F0A0A0', '#A0C4F0'
 
 const CATEGORIES = ['Еда', 'Транспорт', 'Рестораны', 'Здоровье', 'Развлечения', 'Образование', 'Другое']
 
+// Категории, скрытые от Дена (медицинская приватность)
+const PRIVATE_CATS = new Set(['Здоровье'])
+
+function denSafeCategories(cats: any[]): any[] {
+  if (!cats?.length) return []
+  const visible = cats.filter(c => !PRIVATE_CATS.has(c.category))
+  const hiddenTotal = cats.filter(c => PRIVATE_CATS.has(c.category)).reduce((s, c) => s + c.total, 0)
+  if (hiddenTotal > 0) {
+    const prochee = visible.find(c => c.category === 'Прочее')
+    if (prochee) {
+      return visible.map(c => c.category === 'Прочее' ? { ...c, total: c.total + hiddenTotal } : c)
+    }
+    return [...visible, { category: 'Личное', total: hiddenTotal }]
+  }
+  return visible
+}
+
 function haptic(s: 'light' | 'medium' = 'light') {
   window.Telegram?.WebApp?.HapticFeedback?.impactOccurred(s)
 }
@@ -86,6 +103,19 @@ export default function FinancesPage() {
     const pct = (cat.total / lim.monthly_limit) * 100
     return { spent: cat.total, limit: lim.monthly_limit, pct, over: pct > 100 }
   }
+
+  // Применяем фильтр приватности для Дена
+  const visibleCategories = isAnya
+    ? (summary?.by_category ?? [])
+    : denSafeCategories(summary?.by_category ?? [])
+
+  const visibleLimits = isAnya
+    ? (summary?.limits ?? [])
+    : (summary?.limits ?? []).filter((l: any) => !PRIVATE_CATS.has(l.category))
+
+  const visibleExpenses = isAnya
+    ? (summary?.recent_expenses ?? [])
+    : (summary?.recent_expenses ?? []).filter((e: any) => !PRIVATE_CATS.has(e.category))
 
   if (loading) return <div className="px-4 pt-6"><LoadingSpinner /></div>
 
@@ -199,20 +229,20 @@ export default function FinancesPage() {
         </div>
 
         {/* Donut chart */}
-        {summary?.by_category?.length > 0 && (
+        {visibleCategories.length > 0 && (
           <GlassCard delay={0.12} className="p-4">
             <p className="font-semibold text-gray-800 text-sm mb-3">Расходы по категориям</p>
             <div className="flex items-center gap-4">
               <ResponsiveContainer width={120} height={120}>
                 <PieChart>
                   <Pie
-                    data={summary.by_category}
+                    data={visibleCategories}
                     cx="50%" cy="50%"
                     innerRadius={35} outerRadius={55}
                     dataKey="total"
                     nameKey="category"
                   >
-                    {summary.by_category.map((_: any, index: number) => (
+                    {visibleCategories.map((_: any, index: number) => (
                       <Cell key={index} fill={COLORS[index % COLORS.length]} opacity={0.85} />
                     ))}
                   </Pie>
@@ -223,7 +253,7 @@ export default function FinancesPage() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="flex-1 space-y-1.5">
-                {summary.by_category.slice(0, 7).map((cat: any, i: number) => (
+                {visibleCategories.slice(0, 7).map((cat: any, i: number) => (
                   <div key={cat.category} className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <div className="w-2 h-2 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />
@@ -238,10 +268,10 @@ export default function FinancesPage() {
         )}
 
         {/* Limits */}
-        {summary?.limits?.length > 0 && (
+        {visibleLimits.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">Лимиты</p>
-            {summary.limits.map((lim: any, i: number) => {
+            {visibleLimits.map((lim: any, i: number) => {
               const status = getLimitStatus(lim.category)
               if (!status) return null
               return (
@@ -268,10 +298,10 @@ export default function FinancesPage() {
         )}
 
         {/* Recent */}
-        {summary?.recent_expenses?.length > 0 && (
+        {visibleExpenses.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">Последние расходы</p>
-            {summary.recent_expenses.map((exp: any, i: number) => (
+            {visibleExpenses.map((exp: any, i: number) => (
               <GlassCard key={exp.id} delay={0.2 + i * 0.02} small className="px-4 py-3">
                 <div className="flex items-center justify-between">
                   <div>

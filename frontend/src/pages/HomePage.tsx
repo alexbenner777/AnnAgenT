@@ -435,26 +435,37 @@ function DenHome({ data, history }: { data: any; history: any[] }) {
 
       {/* Финансы с донатом */}
       <GlassCard delay={0.14} className="p-4" onClick={() => navigate('/finances')}>
-        <div className="flex items-center gap-3">
-          <div className="flex-shrink-0">
-            {finances?.by_category?.length
-              ? <FinanceDonut byCategory={finances.by_category} />
-              : <div className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center"><Wallet size={18} className="text-emerald-500" /></div>
-            }
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-gray-500">Расходы за месяц</p>
-            <p className="text-base font-bold text-gray-900">
-              {finances?.month_expenses != null ? `${(finances.month_expenses / 1000).toFixed(0)} тыс. ₽` : data?.month_expenses ? `${(data.month_expenses / 1000).toFixed(0)} тыс. ₽` : '—'}
-            </p>
-            {finances?.by_category?.slice(0, 2).map((c: any, i: number) => (
-              <p key={i} className="text-xs text-gray-400 truncate">
-                <span style={{ color: DONUT_COLORS[i] }}>●</span> {c.category}: {(c.total / 1000).toFixed(0)}к
-              </p>
-            ))}
-          </div>
-          <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
-        </div>
+        {(() => {
+          const PRIV = new Set(['Здоровье'])
+          const rawCats: any[] = finances?.by_category ?? []
+          const safeCats = rawCats.filter((c: any) => !PRIV.has(c.category))
+          const hiddenTotal = rawCats.filter((c: any) => PRIV.has(c.category)).reduce((s: number, c: any) => s + c.total, 0)
+          const displayCats = hiddenTotal > 0
+            ? [...safeCats, { category: 'Личное', total: hiddenTotal }]
+            : safeCats
+          return (
+            <div className="flex items-center gap-3">
+              <div className="flex-shrink-0">
+                {displayCats.length
+                  ? <FinanceDonut byCategory={displayCats} />
+                  : <div className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center"><Wallet size={18} className="text-emerald-500" /></div>
+                }
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-gray-500">Расходы за месяц</p>
+                <p className="text-base font-bold text-gray-900">
+                  {finances?.month_expenses != null ? `${(finances.month_expenses / 1000).toFixed(0)} тыс. ₽` : data?.month_expenses ? `${(data.month_expenses / 1000).toFixed(0)} тыс. ₽` : '—'}
+                </p>
+                {displayCats.slice(0, 2).map((c: any, i: number) => (
+                  <p key={i} className="text-xs text-gray-400 truncate">
+                    <span style={{ color: DONUT_COLORS[i] }}>●</span> {c.category}: {(c.total / 1000).toFixed(0)}к
+                  </p>
+                ))}
+              </div>
+              <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
+            </div>
+          )
+        })()}
       </GlassCard>
 
       {/* Именинники */}

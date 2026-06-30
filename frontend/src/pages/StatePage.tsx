@@ -176,8 +176,8 @@ export default function StatePage() {
           )}
         </GlassCard>
 
-        {/* Oura-данные */}
-        {(today?.readiness_score || today?.hrv_avg) && (
+        {/* Oura-данные — Готовность и Сон видят оба; HRV и ЧСС — только Аня */}
+        {(today?.readiness_score || today?.sleep_hours || (isAnya && today?.hrv_avg)) && (
           <div className="grid grid-cols-2 gap-3">
             {today.readiness_score && (
               <GlassCard delay={0.1} className="p-4 text-center">
@@ -188,7 +188,7 @@ export default function StatePage() {
                 </div>
               </GlassCard>
             )}
-            {today.hrv_avg && (
+            {isAnya && today.hrv_avg && (
               <GlassCard delay={0.12} className="p-4 text-center">
                 <p className="text-xs text-gray-500 mb-1">HRV средний</p>
                 <p className="text-4xl font-bold text-gray-900">{Math.round(today.hrv_avg)}</p>
@@ -202,7 +202,7 @@ export default function StatePage() {
                 <p className="text-xs text-gray-400 mt-1">ч</p>
               </GlassCard>
             )}
-            {today.heart_rate_avg && (
+            {isAnya && today.heart_rate_avg && (
               <GlassCard delay={0.16} className="p-4 text-center">
                 <p className="text-xs text-gray-500 mb-1">ЧСС средняя</p>
                 <p className="text-4xl font-bold text-gray-900">{today.heart_rate_avg}</p>
