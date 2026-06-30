@@ -1,6 +1,6 @@
 run = "python main.py"
 entrypoint = "main.py"
-modules = ["nodejs-20", "python-3.12", "web"]
+modules = ["nodejs-20", "web", "python-3.11"]
 
 [nix]
 channel = "stable-25_05"
@@ -76,6 +76,7 @@ waitForPort = 5000
 [agent]
 expertMode = true
 stack = "BEST_EFFORT_FALLBACK"
+integrations = ["python_anthropic_ai_integrations:1.0.0"]
 
 [userenv]
 
