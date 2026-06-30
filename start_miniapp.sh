@@ -5,7 +5,7 @@ echo "=== LOS Mini App ==="
 # ── 1. Python deps ───────────────────────────────────────────────────
 if ! python3 -c "import fastapi, aiogram, anthropic" 2>/dev/null; then
   echo "Installing Python packages..."
-  pip install -r requirements.txt --break-system-packages -q
+  pip install -r requirements.txt -q
 fi
 
 # ── 2. Node deps ─────────────────────────────────────────────────────
